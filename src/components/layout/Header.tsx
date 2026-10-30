@@ -52,13 +52,23 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate }) => {
   const { playSyncSound } = useMoraJawsSound();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleGlobalRefresh = async () => {
-    playSyncSound();
-    await triggerRefresh(async () => {
-      await refreshFirestoreData();
-    }, 'SINKRONISASI REAL-TIME CLOUD...', 'Menyelaraskan data Work Order & Status dari Cloud Firestore');
-    toast.sync('Data Cloud Firestore berhasil disinkronkan.');
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      playSyncSound();
+      await triggerRefresh(async () => {
+        await refreshFirestoreData();
+      }, 'SINKRONISASI REAL-TIME CLOUD...', 'Menyelaraskan data Work Order, Statistik, Jadwal, dan Konfigurasi');
+      toast.success('Sinkronisasi dan Refresh Berhasil');
+    } catch (err) {
+      console.error('Refresh error:', err);
+      toast.error('Gagal memperbarui data dari server');
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const activeContractor = currentUser.contractor || (contractorsList?.[0] || 'PT Mitra Jaringan Solusi');
@@ -194,29 +204,32 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate }) => {
           </button>
         )}
 
-        {currentUser.role === 'super_admin' && (
-          <button
-            onClick={() => onNavigate('users')}
-            className={`hover:text-[#5B35B1] dark:hover:text-[#E9E1FF] transition-colors whitespace-nowrap pb-1 cursor-pointer ${
-              activeTab === 'users' ? 'text-[#5B35B1] dark:text-[#E9E1FF] border-b-2 border-[#5B35B1] dark:border-[#8064D9] font-bold' : ''
-            }`}
-          >
-            Manajemen Akun
-          </button>
-        )}
+        <button
+          onClick={() => onNavigate('setup')}
+          className={`hover:text-[#5B35B1] dark:hover:text-[#E9E1FF] transition-colors whitespace-nowrap pb-1 cursor-pointer ${
+            activeTab === 'setup' ? 'text-[#5B35B1] dark:text-[#E9E1FF] border-b-2 border-[#5B35B1] dark:border-[#8064D9] font-bold' : ''
+          }`}
+        >
+          Setup
+        </button>
       </nav>
 
       {/* Zone 3: Actions & Profile switcher */}
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-        {/* Global MoraJaws Refresh Button */}
+        {/* Global MoraJaws Refresh Button (Requirement 6) */}
         <button
           type="button"
           onClick={handleGlobalRefresh}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-[#D8B4FE]/40 bg-[#35105E]/40 hover:bg-[#7135B5]/60 text-[#D8B4FE] hover:text-white shadow-[0_0_12px_rgba(113,53,181,0.2)] transition-all hover:scale-105 active:scale-95 cursor-pointer"
-          title="Sinkronisasi & Refresh Data MoraJaws"
+          disabled={isRefreshing}
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border-2 border-[#D8B4FE] bg-gradient-to-r from-[#5B35B1] via-[#7135B5] to-[#8064D9] hover:from-[#4C1D95] hover:to-[#6D28D9] text-white shadow-[0_0_16px_rgba(216,180,254,0.45)] transition-all cursor-pointer ${
+            isRefreshing ? 'opacity-70 cursor-not-allowed scale-95' : 'hover:scale-105 active:scale-95'
+          }`}
+          title="Sinkronisasi & Refresh"
         >
-          <RefreshCw className="w-3.5 h-3.5 text-[#D8B4FE]" />
-          <span className="hidden md:inline font-bold">Refresh</span>
+          <RefreshCw className={`w-4 h-4 text-white ${isRefreshing ? 'animate-spin' : ''}`} />
+          <span className="hidden sm:inline font-bold tracking-wide">
+            {isRefreshing ? 'Menyinkronkan...' : 'Sinkronisasi'}
+          </span>
         </button>
 
         {/* Offline Sync & Connectivity Badge Button */}

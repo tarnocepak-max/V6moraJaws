@@ -66,10 +66,14 @@ import {
 } from './LeaderColumnSettingsModal';
 import { InstallerDetailModal } from './InstallerDetailModal';
 import { UploadAssignModal } from './UploadAssignModal';
+import { LeaderProgressDashboardView } from './LeaderProgressDashboardView';
+import { ContractorAreaRecapView } from '../reports/ContractorAreaRecapView';
 
 interface LeaderPortalProps {
   onSelectTicket: (ticket: Ticket) => void;
   onOpenWhatsApp?: (ticket: Ticket) => void;
+  activeLeaderTab?: 'wo_assignment' | 'progress_dashboard' | 'installer_mgmt' | 'quota_settings' | 'contractor_recap';
+  onLeaderTabChange?: (tab: 'wo_assignment' | 'progress_dashboard' | 'installer_mgmt' | 'quota_settings' | 'contractor_recap') => void;
 }
 
 interface QuotaSettings {
@@ -95,7 +99,12 @@ export type LeaderStatusFilter =
   | 'problem'
   | 'idle_installers';
 
-export const LeaderPortal: React.FC<LeaderPortalProps> = ({ onSelectTicket }) => {
+export const LeaderPortal: React.FC<LeaderPortalProps> = ({
+  onSelectTicket,
+  onOpenWhatsApp,
+  activeLeaderTab,
+  onLeaderTabChange
+}) => {
   const {
     tickets,
     assignTicketPersonnel,
@@ -111,8 +120,13 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({ onSelectTicket }) =>
     areasList
   } = useApp();
 
-  // Navigation tab in portal: Dedicated tabs for Assign WO, Pendaftaran Akun Teknisi, and Dashboard Progress WO
-  const [activeTab, setActiveTab] = useState<'wo_assignment' | 'installer_mgmt' | 'progress_dashboard' | 'quota_settings'>('wo_assignment');
+  // Navigation tab in portal: Dedicated tabs for Assign WO, Pendaftaran Akun Teknisi, Dashboard Progress WO, Quota, and Rekap Area
+  const [internalTab, setInternalTab] = useState<'wo_assignment' | 'installer_mgmt' | 'progress_dashboard' | 'quota_settings' | 'contractor_recap'>('wo_assignment');
+  const activeTab = activeLeaderTab || internalTab;
+  const setActiveTab = (tab: 'wo_assignment' | 'installer_mgmt' | 'progress_dashboard' | 'quota_settings' | 'contractor_recap') => {
+    setInternalTab(tab);
+    if (onLeaderTabChange) onLeaderTabChange(tab);
+  };
 
   // Sub-view in Monitoring tab: 'installer_summary' (table of installers) vs 'wo_detail' (table of work orders)
   const [monitoringView, setMonitoringView] = useState<'installer_summary' | 'wo_detail'>('installer_summary');
@@ -206,9 +220,13 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({ onSelectTicket }) =>
   const [statusFilter, setStatusFilter] = useState<LeaderStatusFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedInstallerFilter, setSelectedInstallerFilter] = useState<string>('ALL');
-  const [dateFilterType, setDateFilterType] = useState<'all' | 'today' | 'tomorrow' | 'custom'>('all');
-  const [customDateStart, setCustomDateStart] = useState<string>('');
-  const [customDateEnd, setCustomDateEnd] = useState<string>('');
+  
+  // Date Range Filter for Assign WO (Strict Asia/Jakarta Appointment Date - Requirement 6)
+  const todayWIB = getJakartaDateString(0);
+  const [assignStartDate, setAssignStartDate] = useState<string>(todayWIB);
+  const [assignEndDate, setAssignEndDate] = useState<string>(todayWIB);
+  const [appliedStartDate, setAppliedStartDate] = useState<string>(todayWIB);
+  const [appliedEndDate, setAppliedEndDate] = useState<string>(todayWIB);
 
   // Pagination & Rows per page
   const [rowsPerPage, setRowsPerPage] = useState<number>(25);
@@ -914,6 +932,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({ onSelectTicket }) =>
       {/* ============================================================ */}
       <div className="flex flex-wrap items-center gap-2 border-b-2 border-[#D8CCF3] dark:border-purple-900/60 pb-1 text-xs font-semibold">
         {/* TAB 1: ASSIGN WO */}
+        {/* TAB 1: ASSIGN WO */}
         <button
           type="button"
           onClick={() => setActiveTab('wo_assignment')}
@@ -924,7 +943,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({ onSelectTicket }) =>
           }`}
         >
           <UserCheck className="w-4 h-4 text-[#5B35B1] dark:text-purple-300" />
-          <span>Assign WO</span>
+          <span>ASSIGN WO</span>
           {summaryMetrics.unassigned > 0 ? (
             <span className="px-2 py-0.5 rounded-full text-[10.5px] bg-amber-500 text-white font-mono font-bold animate-pulse">
               {summaryMetrics.unassigned} Belum Di-assign
@@ -936,24 +955,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({ onSelectTicket }) =>
           )}
         </button>
 
-        {/* TAB 2: PENDAFTARAN AKUN TEKNISI */}
-        <button
-          type="button"
-          onClick={() => setActiveTab('installer_mgmt')}
-          className={`px-4 py-2.5 rounded-t-xl border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
-            activeTab === 'installer_mgmt'
-              ? 'border-emerald-600 bg-emerald-50/80 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold shadow-xs'
-              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-emerald-700 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/30'
-          }`}
-        >
-          <UserPlus className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-          <span>Pendaftaran Akun Teknisi</span>
-          <span className="px-2 py-0.5 rounded-full text-[10.5px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-mono font-bold">
-            {myInstallers.length} Teknisi
-          </span>
-        </button>
-
-        {/* TAB 3: DASHBOARD PROGRESS WO */}
+        {/* TAB 2: DASHBOARD PROGRESS WO */}
         <button
           type="button"
           onClick={() => setActiveTab('progress_dashboard')}
@@ -964,13 +966,30 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({ onSelectTicket }) =>
           }`}
         >
           <BarChart3 className="w-4 h-4 text-[#5B35B1] dark:text-purple-300" />
-          <span>Dashboard Progress WO</span>
+          <span>DASHBOARD PROGRESS WO</span>
           <span className="px-2 py-0.5 rounded-full text-[10.5px] bg-[#E9E1FF] dark:bg-purple-900/60 text-[#3B1D78] dark:text-purple-200 font-mono font-bold">
             Live SLA
           </span>
         </button>
 
-        {/* TAB 4: PENGATURAN KUOTA & KOLOM */}
+        {/* TAB 3: PENDAFTARAN AKUN TEKNISI */}
+        <button
+          type="button"
+          onClick={() => setActiveTab('installer_mgmt')}
+          className={`px-4 py-2.5 rounded-t-xl border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
+            activeTab === 'installer_mgmt'
+              ? 'border-emerald-600 bg-emerald-50/80 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold shadow-xs'
+              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-emerald-700 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/30'
+          }`}
+        >
+          <UserPlus className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+          <span>PENDAFTARAN AKUN TEKNISI</span>
+          <span className="px-2 py-0.5 rounded-full text-[10.5px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-mono font-bold">
+            {myInstallers.length} Teknisi
+          </span>
+        </button>
+
+        {/* TAB 4: PENGATURAN KUOTA & KOLOM VISIBILITAS */}
         <button
           type="button"
           onClick={() => setActiveTab('quota_settings')}
@@ -981,7 +1000,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({ onSelectTicket }) =>
           }`}
         >
           <Sliders className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-          <span>Pengaturan Kuota & Kolom</span>
+          <span>PENGATURAN KUOTA & KOLOM VISIBILITAS</span>
         </button>
       </div>
 
@@ -1877,867 +1896,103 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({ onSelectTicket }) =>
       )}
 
       {/* ============================================================ */}
-      {/* TAB 3: DASHBOARD PROGRESS WO & REALTIME SLA                  */}
+      {/* TAB 2: DASHBOARD PROGRESS WO (SCREENSHOT 1 & 3 DESIGN)        */}
       {/* ============================================================ */}
       {activeTab === 'progress_dashboard' && (
-        <div className="space-y-6">
-          {/* Header Dashboard Progress */}
-          <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-bold text-[#3B1D78] dark:text-purple-200 flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-[#5B35B1]" />
-                <span>Dashboard Progress WO & Pemantauan SLA Lapangan</span>
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Pantau metrik kecepatan penyelesaian penugasan WO, kendala lapangan, beban harian teknisi, dan matriks jadwal.
-              </p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => {
-                  setStatusFilter('unassigned');
-                  setActiveTab('wo_assignment');
-                }}
-                className="px-3.5 py-1.5 bg-[#5B35B1] hover:bg-[#3B1D78] text-white font-bold rounded-xl text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
-              >
-                <UserCheck className="w-3.5 h-3.5" />
-                <span>Buka Penugasan WO</span>
-              </button>
-            </div>
-          </div>
-
-          {/* 10 KARTU METRIK INTERAKTIF */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5 sm:gap-3">
-            {/* 1. Total WO */}
-            <button
-              type="button"
-              onClick={() => {
-                setStatusFilter('all');
-                setActiveTab('wo_assignment');
-              }}
-              className={`p-3 sm:p-3.5 rounded-xl border-2 text-left transition-all relative overflow-hidden flex flex-col justify-between cursor-pointer ${
-                statusFilter === 'all'
-                  ? 'bg-[#3B1D78] text-white border-[#3B1D78] shadow-md ring-2 ring-[#5B35B1]/50'
-                  : 'bg-white dark:bg-[#1A0E2E] border-[#D8CCF3] dark:border-purple-900/60 hover:border-[#5B35B1] hover:shadow-xs'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className={`text-[11px] font-semibold ${statusFilter === 'all' ? 'text-purple-200' : 'text-slate-500'}`}>
-                  1. Total WO
-                </span>
-                <Layers className={`w-3.5 h-3.5 ${statusFilter === 'all' ? 'text-purple-300' : 'text-[#5B35B1]'}`} />
-              </div>
-              <div className="mt-1.5 text-2xl font-black font-mono">
-                {summaryMetrics.total}
-              </div>
-              <div className="mt-1 text-[10px] text-slate-400 font-medium">
-                Semua Data Mitra
-              </div>
-            </button>
-
-            {/* 2. WO Belum Di-assign */}
-            <button
-              type="button"
-              onClick={() => {
-                setStatusFilter('unassigned');
-                setActiveTab('wo_assignment');
-              }}
-              className={`p-3 sm:p-3.5 rounded-xl border-2 text-left transition-all relative overflow-hidden flex flex-col justify-between cursor-pointer ${
-                statusFilter === 'unassigned'
-                  ? 'bg-amber-500 text-white border-amber-600 shadow-md ring-2 ring-amber-500/50'
-                  : 'bg-white dark:bg-[#1A0E2E] border-amber-200 dark:border-amber-900/50 hover:border-amber-400 hover:shadow-xs'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className={`text-[11px] font-bold ${statusFilter === 'unassigned' ? 'text-amber-100' : 'text-amber-600 dark:text-amber-400'}`}>
-                  2. Belum Di-assign
-                </span>
-                <Clock className={`w-3.5 h-3.5 ${statusFilter === 'unassigned' ? 'text-white' : 'text-amber-500'}`} />
-              </div>
-              <div className={`mt-1.5 text-2xl font-black font-mono ${statusFilter === 'unassigned' ? 'text-white' : 'text-amber-600 dark:text-amber-400'}`}>
-                {summaryMetrics.unassigned}
-              </div>
-              <div className={`mt-1 text-[10px] font-medium ${statusFilter === 'unassigned' ? 'text-amber-100' : 'text-slate-400'}`}>
-                Klik untuk Assign Langsung
-              </div>
-            </button>
-
-            {/* 3. WO Sudah Di-assign */}
-            <button
-              type="button"
-              onClick={() => {
-                setStatusFilter('assigned');
-                setActiveTab('wo_assignment');
-              }}
-              className={`p-3 sm:p-3.5 rounded-xl border-2 text-left transition-all relative overflow-hidden flex flex-col justify-between cursor-pointer ${
-                statusFilter === 'assigned'
-                  ? 'bg-[#5B35B1] text-white border-[#3B1D78] shadow-md ring-2 ring-[#5B35B1]/50'
-                  : 'bg-white dark:bg-[#1A0E2E] border-[#D8CCF3] dark:border-purple-900/60 hover:border-[#5B35B1] hover:shadow-xs'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className={`text-[11px] font-bold ${statusFilter === 'assigned' ? 'text-purple-100' : 'text-[#5B35B1] dark:text-purple-300'}`}>
-                  3. Sudah Di-assign
-                </span>
-                <UserCheck className={`w-3.5 h-3.5 ${statusFilter === 'assigned' ? 'text-white' : 'text-[#5B35B1]'}`} />
-              </div>
-              <div className={`mt-1.5 text-2xl font-black font-mono ${statusFilter === 'assigned' ? 'text-white' : 'text-[#5B35B1] dark:text-purple-300'}`}>
-                {summaryMetrics.assigned}
-              </div>
-              <div className={`mt-1 text-[10px] font-medium ${statusFilter === 'assigned' ? 'text-purple-100' : 'text-slate-400'}`}>
-                {summaryMetrics.total > 0 ? `${Math.round((summaryMetrics.assigned / summaryMetrics.total) * 100)}% dari Total` : '0%'}
-              </div>
-            </button>
-
-            {/* 4. WO Menunggu Pengerjaan */}
-            <button
-              type="button"
-              onClick={() => {
-                setStatusFilter('waiting');
-                setActiveTab('wo_assignment');
-              }}
-              className={`p-3 sm:p-3.5 rounded-xl border-2 text-left transition-all relative overflow-hidden flex flex-col justify-between cursor-pointer ${
-                statusFilter === 'waiting'
-                  ? 'bg-slate-700 text-white border-slate-800 shadow-md ring-2 ring-slate-500/50'
-                  : 'bg-white dark:bg-[#1A0E2E] border-slate-200 dark:border-slate-800 hover:border-slate-400 hover:shadow-xs'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className={`text-[11px] font-semibold ${statusFilter === 'waiting' ? 'text-slate-200' : 'text-slate-600 dark:text-slate-400'}`}>
-                  4. Menunggu
-                </span>
-                <Clock className="w-3.5 h-3.5 text-slate-400" />
-              </div>
-              <div className={`mt-1.5 text-2xl font-black font-mono ${statusFilter === 'waiting' ? 'text-white' : 'text-slate-700 dark:text-slate-300'}`}>
-                {summaryMetrics.waiting}
-              </div>
-              <div className={`mt-1 text-[10px] font-medium ${statusFilter === 'waiting' ? 'text-slate-300' : 'text-slate-400'}`}>
-                Belum Mulai Berangkat
-              </div>
-            </button>
-
-            {/* 5. WO Sedang Dikerjakan */}
-            <button
-              type="button"
-              onClick={() => {
-                setStatusFilter('in_progress');
-                setActiveTab('wo_assignment');
-              }}
-              className={`p-3 sm:p-3.5 rounded-xl border-2 text-left transition-all relative overflow-hidden flex flex-col justify-between cursor-pointer ${
-                statusFilter === 'in_progress'
-                  ? 'bg-blue-600 text-white border-blue-700 shadow-md ring-2 ring-blue-500/50'
-                  : 'bg-white dark:bg-[#1A0E2E] border-blue-200 dark:border-blue-900/50 hover:border-blue-400 hover:shadow-xs'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className={`text-[11px] font-bold ${statusFilter === 'in_progress' ? 'text-blue-100' : 'text-blue-600 dark:text-blue-400'}`}>
-                  5. Sedang Dikerjakan
-                </span>
-                <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
-              </div>
-              <div className={`mt-1.5 text-2xl font-black font-mono ${statusFilter === 'in_progress' ? 'text-white' : 'text-blue-600 dark:text-blue-400'}`}>
-                {summaryMetrics.inProgress}
-              </div>
-              <div className={`mt-1 text-[10px] font-medium ${statusFilter === 'in_progress' ? 'text-blue-100' : 'text-slate-400'}`}>
-                En Route / On Site
-              </div>
-            </button>
-
-            {/* 6. WO Selesai */}
-            <button
-              type="button"
-              onClick={() => {
-                setStatusFilter('completed');
-                setActiveTab('wo_assignment');
-              }}
-              className={`p-3 sm:p-3.5 rounded-xl border-2 text-left transition-all relative overflow-hidden flex flex-col justify-between cursor-pointer ${
-                statusFilter === 'completed'
-                  ? 'bg-emerald-600 text-white border-emerald-700 shadow-md ring-2 ring-emerald-500/50'
-                  : 'bg-white dark:bg-[#1A0E2E] border-emerald-200 dark:border-emerald-900/50 hover:border-emerald-400 hover:shadow-xs'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className={`text-[11px] font-bold ${statusFilter === 'completed' ? 'text-emerald-100' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                  6. WO Selesai
-                </span>
-                <CheckCircle2 className={`w-3.5 h-3.5 ${statusFilter === 'completed' ? 'text-white' : 'text-emerald-500'}`} />
-              </div>
-              <div className={`mt-1.5 text-2xl font-black font-mono ${statusFilter === 'completed' ? 'text-white' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                {summaryMetrics.completed}
-              </div>
-              <div className={`mt-1 text-[10px] font-semibold ${statusFilter === 'completed' ? 'text-emerald-100' : 'text-emerald-600'}`}>
-                {summaryMetrics.total > 0 ? `${Math.round((summaryMetrics.completed / summaryMetrics.total) * 100)}% Rasio Tuntas` : '0%'}
-              </div>
-            </button>
-
-            {/* 7. WO Tertunda */}
-            <button
-              type="button"
-              onClick={() => {
-                setStatusFilter('pending');
-                setActiveTab('wo_assignment');
-              }}
-              className={`p-3 sm:p-3.5 rounded-xl border-2 text-left transition-all relative overflow-hidden flex flex-col justify-between cursor-pointer ${
-                statusFilter === 'pending'
-                  ? 'bg-amber-600 text-white border-amber-700 shadow-md ring-2 ring-amber-500/50'
-                  : 'bg-white dark:bg-[#1A0E2E] border-slate-200 dark:border-slate-800 hover:border-amber-400 hover:shadow-xs'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className={`text-[11px] font-bold ${statusFilter === 'pending' ? 'text-amber-100' : 'text-amber-600 dark:text-amber-400'}`}>
-                  7. WO Tertunda
-                </span>
-                <RotateCcw className={`w-3.5 h-3.5 ${statusFilter === 'pending' ? 'text-white' : 'text-amber-500'}`} />
-              </div>
-              <div className={`mt-1.5 text-2xl font-black font-mono ${statusFilter === 'pending' ? 'text-white' : 'text-amber-600 dark:text-amber-400'}`}>
-                {summaryMetrics.pending}
-              </div>
-              <div className={`mt-1 text-[10px] font-medium ${statusFilter === 'pending' ? 'text-amber-100' : 'text-slate-400'}`}>
-                Reschedule / Pending
-              </div>
-            </button>
-
-            {/* 8. WO Bermasalah */}
-            <button
-              type="button"
-              onClick={() => {
-                setStatusFilter('problem');
-                setActiveTab('wo_assignment');
-              }}
-              className={`p-3 sm:p-3.5 rounded-xl border-2 text-left transition-all relative overflow-hidden flex flex-col justify-between cursor-pointer ${
-                statusFilter === 'problem'
-                  ? 'bg-rose-600 text-white border-rose-700 shadow-md ring-2 ring-rose-500/50'
-                  : 'bg-white dark:bg-[#1A0E2E] border-rose-200 dark:border-rose-900/50 hover:border-rose-400 hover:shadow-xs'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className={`text-[11px] font-bold ${statusFilter === 'problem' ? 'text-rose-100' : 'text-rose-600 dark:text-rose-400'}`}>
-                  8. WO Bermasalah
-                </span>
-                <XCircle className={`w-3.5 h-3.5 ${statusFilter === 'problem' ? 'text-white' : 'text-rose-500'}`} />
-              </div>
-              <div className={`mt-1.5 text-2xl font-black font-mono ${statusFilter === 'problem' ? 'text-white' : 'text-rose-600 dark:text-rose-400'}`}>
-                {summaryMetrics.problem}
-              </div>
-              <div className={`mt-1 text-[10px] font-medium ${statusFilter === 'problem' ? 'text-rose-100' : 'text-slate-400'}`}>
-                Gagal / Batal
-              </div>
-            </button>
-
-            {/* 9. Total Installer */}
-            <div className="p-3 sm:p-3.5 rounded-xl border-2 bg-white dark:bg-[#1A0E2E] border-[#D8CCF3] dark:border-purple-900/60 flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-[#3B1D78] dark:text-purple-300">
-                  9. Total Installer
-                </span>
-                <Users2 className="w-3.5 h-3.5 text-[#5B35B1]" />
-              </div>
-              <div className="mt-1.5 text-2xl font-black font-mono text-slate-900 dark:text-white">
-                {summaryMetrics.activeInstallers}
-              </div>
-              <div className="mt-1 text-[10px] text-slate-400 font-medium">
-                Akun Terdaftar
-              </div>
-            </div>
-
-            {/* 10. Installer Tanpa WO */}
-            <div
-              className={`p-3 sm:p-3.5 rounded-xl border-2 flex flex-col justify-between ${
-                summaryMetrics.idleInstallers > 0
-                  ? 'bg-amber-50/70 dark:bg-amber-950/20 border-amber-300 dark:border-amber-800'
-                  : 'bg-white dark:bg-[#1A0E2E] border-[#D8CCF3] dark:border-purple-900/60'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
-                  10. Installer Tanpa WO
-                </span>
-                <UserCheck className="w-3.5 h-3.5 text-amber-500" />
-              </div>
-              <div className="mt-1.5 text-2xl font-black font-mono text-amber-700 dark:text-amber-400">
-                {summaryMetrics.idleInstallers}
-              </div>
-              <div className="mt-1 text-[10px] text-slate-400 font-medium">
-                Kapasitas Bebas
-              </div>
-            </div>
-          </div>
-
-          {/* Kotak Perhatian Leader & Korlap */}
-          {(summaryMetrics.unassigned > 0 || summaryMetrics.problem > 0) && (
-            <div className="p-4 rounded-xl border-2 border-amber-300 dark:border-amber-900/60 bg-amber-50/80 dark:bg-amber-950/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs">
-              <div className="flex items-start sm:items-center gap-3">
-                <div className="p-2 bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 rounded-lg shrink-0">
-                  <AlertTriangle className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-amber-950 dark:text-amber-200">
-                    Perlu Perhatian Operasional Leader & Korlap
-                  </h4>
-                  <p className="text-amber-800 dark:text-amber-300 text-[11px] mt-0.5">
-                    Terdapat <strong className="font-mono">{summaryMetrics.unassigned} WO belum ditugaskan</strong> dan <strong className="font-mono">{summaryMetrics.problem} WO bermasalah/batal</strong> yang membutuhkan tindak lanjut operasional.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStatusFilter('unassigned');
-                    setActiveTab('wo_assignment');
-                  }}
-                  className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow-xs transition-colors text-xs flex items-center gap-1.5 cursor-pointer"
-                >
-                  <UserCheck className="w-3.5 h-3.5" />
-                  <span>Tugaskan WO Belum Di-assign ({summaryMetrics.unassigned})</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* TABEL EVALUASI & BEBAN KERJA TEKNISI */}
-          <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 shadow-xs overflow-hidden">
-            <div className="px-5 py-4 border-b border-[#E9E1FF] dark:border-purple-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#F5F1FF]/60 dark:bg-[#251545]/40">
-              <div>
-                <h3 className="font-bold text-xs text-[#3B1D78] dark:text-purple-200">
-                  Tabel Evaluasi & Beban Kerja Teknisi ({myInstallers.length} Teknisi Terdaftar)
-                </h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Progress (%) = Jumlah WO Selesai / Total WO yang Ditugaskan × 100%.
-                </p>
-              </div>
-
-              <div className="text-xs text-slate-500 font-mono">
-                Batas Kuota: <strong className="text-[#5B35B1] font-bold">{quotaSettings.defaultMaxDailyQuota} WO/Hari</strong>
-              </div>
-            </div>
-
-            {myInstallers.length === 0 ? (
-              <div className="p-8 text-center text-slate-400 text-xs">
-                Belum ada teknisi yang terdaftar di bawah kontraktor {leaderContractor}. Silakan tambahkan pada tab "Pendaftaran Akun Teknisi".
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead className="bg-[#F5F1FF] dark:bg-[#251545] text-[11px] font-semibold text-slate-600 dark:text-slate-300 uppercase">
-                    <tr>
-                      <th className="py-3 px-3 text-center w-10">No</th>
-                      <th className="py-3 px-3 min-w-[170px]">Installer / Teknisi</th>
-                      <th className="py-3 px-3">Kontraktor</th>
-                      <th className="py-3 px-3 text-center font-mono">Total WO</th>
-                      <th className="py-3 px-3 text-center text-slate-600 font-mono">Belum Mulai</th>
-                      <th className="py-3 px-3 text-center text-blue-600 font-mono">Proses</th>
-                      <th className="py-3 px-3 text-center text-emerald-600 font-mono">Selesai</th>
-                      <th className="py-3 px-3 text-center text-amber-600 font-mono">Tertunda</th>
-                      <th className="py-3 px-3 min-w-[200px]">Progress Visual</th>
-                      <th className="py-3 px-3 text-center min-w-[140px]">Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {installerProgressRows.map((row, idx) => {
-                      const isIdle = row.totalWO === 0;
-                      return (
-                        <tr key={row.installer.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors">
-                          <td className="py-3 px-3 text-center font-mono text-slate-400">{idx + 1}</td>
-                          <td className="py-3 px-3">
-                            <div
-                              onClick={() => setSelectedInstallerForDetail(row.installer)}
-                              className="font-bold text-slate-900 dark:text-white hover:text-[#5B35B1] cursor-pointer flex items-center gap-1.5"
-                            >
-                              <span>{row.installer.name}</span>
-                              <span className={`w-2 h-2 rounded-full ${row.installer.active ? 'bg-emerald-500' : 'bg-slate-300'}`} />
-                            </div>
-                            <div className="text-[11px] font-mono text-slate-400">@{row.installer.username}</div>
-                            {row.installer.phone && (
-                              <div className="text-[10.5px] text-emerald-600 font-mono mt-0.5 flex items-center gap-1">
-                                <Phone className="w-3 h-3" />
-                                <span>{row.installer.phone}</span>
-                              </div>
-                            )}
-                          </td>
-                          <td className="py-3 px-3 text-slate-600 dark:text-slate-400">{leaderContractor}</td>
-                          <td className="py-3 px-3 text-center font-mono font-bold text-slate-900 dark:text-white">
-                            {row.totalWO}
-                          </td>
-                          <td className="py-3 px-3 text-center font-mono text-slate-600 dark:text-slate-400">
-                            {row.notStarted}
-                          </td>
-                          <td className="py-3 px-3 text-center font-mono font-bold text-blue-600 dark:text-blue-400">
-                            {row.inProgress}
-                          </td>
-                          <td className="py-3 px-3 text-center font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                            {row.finished}
-                          </td>
-                          <td className="py-3 px-3 text-center font-mono text-amber-600 dark:text-amber-400">
-                            {row.pending}
-                          </td>
-                          <td className="py-3 px-3 align-middle">
-                            {isIdle ? (
-                              <span className="inline-block px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-500">
-                                Belum Ada Tugas
-                              </span>
-                            ) : (
-                              <div className="space-y-1">
-                                <div className="flex items-center justify-between text-[11px]">
-                                  <span className="font-semibold text-slate-700 dark:text-slate-300">
-                                    {row.finished} dari {row.totalWO} WO selesai
-                                  </span>
-                                  <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                                    {row.progressPercent}%
-                                  </span>
-                                </div>
-                                <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
-                                  <div
-                                    className={`h-full rounded-full transition-all duration-500 ${
-                                      row.progressPercent === 100
-                                        ? 'bg-emerald-500'
-                                        : row.progressPercent > 50
-                                        ? 'bg-blue-500'
-                                        : row.progressPercent > 0
-                                        ? 'bg-amber-500'
-                                        : 'bg-slate-400'
-                                    }`}
-                                    style={{ width: `${Math.min(100, row.progressPercent)}%` }}
-                                  />
-                                </div>
-                              </div>
-                            )}
-                          </td>
-                          <td className="py-3 px-3 text-center">
-                            <div className="flex items-center justify-center gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => setSelectedInstallerForDetail(row.installer)}
-                                className="px-2.5 py-1 bg-[#F5F1FF] text-[#5B35B1] hover:bg-[#E9E1FF] font-semibold rounded-lg text-xs cursor-pointer"
-                              >
-                                Detail
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setBulkTargetInstaller(row.installer.name);
-                                  setIsBulkAssignModalOpen(true);
-                                }}
-                                className="px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-semibold rounded-lg text-xs cursor-pointer"
-                              >
-                                + Assign
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          {/* MATRIKS JADWAL & KAPASITAS TEKNISI */}
-          <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 p-5 shadow-xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E9E1FF] dark:border-purple-900/40">
-              <div>
-                <h4 className="font-bold text-[#3B1D78] dark:text-purple-200 text-xs flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-[#5B35B1]" />
-                  <span>Jadwal Harian & Utilisasi Beban Teknisi ({leaderContractor})</span>
-                </h4>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Batas kuota harian: <strong className="text-[#5B35B1]">{quotaSettings.defaultMaxDailyQuota} WO/teknisi</strong>. Klik slot kosong untuk langsung menugaskan WO.
-                </p>
-              </div>
-
-              {/* Date Filter */}
-              <div className="flex items-center gap-2 text-xs">
-                <span className="text-slate-500 font-medium">Tanggal Operasi:</span>
-                <button
-                  type="button"
-                  onClick={() => setScheduleDate(getJakartaDateString(0))}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                    scheduleDate === getJakartaDateString(0)
-                      ? 'bg-[#5B35B1] text-white font-bold'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-                  }`}
-                >
-                  Hari Ini ({getJakartaDateParts(0).labelShort})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setScheduleDate(getJakartaDateString(1))}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                    scheduleDate === getJakartaDateString(1)
-                      ? 'bg-[#5B35B1] text-white font-bold'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-                  }`}
-                >
-                  Besok ({getJakartaDateParts(1).labelShort})
-                </button>
-                <input
-                  type="date"
-                  value={scheduleDate}
-                  onChange={e => setScheduleDate(e.target.value)}
-                  className="px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200"
-                />
-              </div>
-            </div>
-
-            {/* Timetable Matrix */}
-            <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-xl">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-[#F5F1FF] dark:bg-[#251545] text-[11px] font-semibold text-slate-600 dark:text-slate-300 uppercase">
-                  <tr>
-                    <th className="py-3 px-3 min-w-[160px]">Teknisi Lapangan</th>
-                    {STANDARD_SLOTS.map(slot => (
-                      <th key={slot} className="py-3 px-3 min-w-[190px] text-center border-l border-slate-200 dark:border-slate-700">
-                        {slot}
-                      </th>
-                    ))}
-                    <th className="py-3 px-3 min-w-[120px] text-center border-l border-slate-200 dark:border-slate-700">
-                      Beban / Kuota
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                  {myInstallers.map(inst => {
-                    const instDateTickets = contractorTickets.filter(
-                      t => t.installerName === inst.name && (t.date === scheduleDate || t.appointmentDate === scheduleDate)
-                    );
-                    const maxQuota = getMaxQuotaForInstaller(inst.name);
-                    const isQuotaFull = instDateTickets.length >= maxQuota;
-
-                    return (
-                      <tr key={inst.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
-                        <td className="py-3 px-3 font-medium text-slate-900 dark:text-white">
-                          <div className="font-bold text-xs">{inst.name}</div>
-                          <div className="text-[11px] font-mono text-slate-400">@{inst.username}</div>
-                          {inst.phone && (
-                            <div className="text-[10.5px] text-emerald-600 font-mono mt-0.5 flex items-center gap-1">
-                              <Phone className="w-3 h-3" />
-                              <span>{inst.phone}</span>
-                            </div>
-                          )}
-                        </td>
-
-                        {STANDARD_SLOTS.map(slot => {
-                          const slotKey = slot.substring(0, 5);
-                          const slotTickets = instDateTickets.filter(
-                            t => (t.slotTime || '').includes(slotKey)
-                          );
-
-                          return (
-                            <td key={slot} className="py-2.5 px-3 border-l border-slate-200 dark:border-slate-700 align-top">
-                              {slotTickets.length === 0 ? (
-                                <button
-                                  type="button"
-                                  onClick={() => setSelectedSlotForAssign({ installer: inst.name, slot })}
-                                  disabled={isQuotaFull}
-                                  className={`w-full h-full min-h-[58px] p-2 rounded-lg border border-dashed flex flex-col items-center justify-center gap-1 transition-colors text-[11px] cursor-pointer ${
-                                    isQuotaFull
-                                      ? 'border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/20 text-slate-400 cursor-not-allowed'
-                                      : 'border-[#D8CCF3] dark:border-slate-700 hover:border-[#5B35B1] hover:bg-[#F5F1FF]/60 dark:hover:bg-purple-950/30 text-slate-400 hover:text-[#5B35B1]'
-                                  }`}
-                                >
-                                  {isQuotaFull ? (
-                                    <span className="text-[10px] text-rose-500 font-semibold">Kuota Penuh</span>
-                                  ) : (
-                                    <>
-                                      <span className="font-semibold text-emerald-600 text-[10.5px] flex items-center gap-1">
-                                        <Check className="w-3 h-3" /> Slot Bebas
-                                      </span>
-                                      <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                                        <Plus className="w-2.5 h-2.5" /> Tugaskan WO
-                                      </span>
-                                    </>
-                                  )}
-                                </button>
-                              ) : (
-                                <div className="space-y-1.5">
-                                  {slotTickets.map(t => (
-                                    <div
-                                      key={t.id}
-                                      className="p-2 rounded-lg bg-[#F5F1FF] dark:bg-purple-950/60 border border-[#D8CCF3] dark:border-purple-800 text-xs space-y-1 shadow-2xs"
-                                    >
-                                      <div className="flex items-center justify-between">
-                                        <span
-                                          onClick={() => onSelectTicket(t)}
-                                          className="font-mono font-bold text-[#5B35B1] dark:text-purple-300 hover:underline cursor-pointer"
-                                        >
-                                          {t.woNumber}
-                                        </span>
-                                        <StatusInstallerBadge status={t.statusWOInstaller} />
-                                      </div>
-                                      <div className="font-medium text-slate-800 dark:text-slate-200 truncate">{t.customerName}</div>
-                                      <div className="text-[10px] text-slate-500 truncate">{t.clusterName || t.area}</div>
-                                      <div className="flex items-center justify-between pt-1 border-t border-[#E9E1FF] dark:border-purple-900 text-[10px]">
-                                        <button
-                                          type="button"
-                                          onClick={() => onSelectTicket(t)}
-                                          className="text-[#5B35B1] dark:text-purple-400 font-semibold hover:underline cursor-pointer"
-                                        >
-                                          Detail
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            const instUser = myInstallers.find(u => u.name === t.installerName);
-                                            if (instUser) {
-                                              const msg = buildInstallerAssignmentMessage(t, instUser);
-                                              setAssignmentNoticeModal({
-                                                ticket: t,
-                                                installer: instUser,
-                                                renderedMessage: msg,
-                                                targetPhone: instUser.phone || ''
-                                              });
-                                            }
-                                          }}
-                                          className="text-emerald-600 font-semibold hover:underline flex items-center gap-0.5 cursor-pointer"
-                                        >
-                                          <Phone className="w-2.5 h-2.5" />
-                                          <span>WA</span>
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </td>
-                          );
-                        })}
-
-                        <td className="py-3 px-3 text-center border-l border-slate-200 dark:border-slate-700 align-middle">
-                          <span
-                            className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-bold ${
-                              instDateTickets.length >= maxQuota
-                                ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-                                : instDateTickets.length > 0
-                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                                : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                            }`}
-                          >
-                            {instDateTickets.length} / {maxQuota} WO
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+        <LeaderProgressDashboardView
+          onSelectTicket={onSelectTicket}
+          onOpenWhatsApp={onOpenWhatsApp}
+        />
       )}
-
       {/* ============================================================ */}
-      {/* TAB 3: MANAJEMEN TIM TEKNISI                                 */}
-      {/* ============================================================ */}
-      {activeTab === 'installer_mgmt' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Add Installer Form */}
-          <div className="lg:col-span-1 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs space-y-4 text-xs h-fit">
-            <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold">
-                <UserPlus className="w-4 h-4" />
-              </div>
-              <div>
-                <h4 className="font-bold text-slate-900 dark:text-white text-xs">
-                  Tambah Akun Installer Baru
-                </h4>
-                <p className="text-[11px] text-slate-500">
-                  Kontraktor otomatis terikat: <strong className="text-emerald-600">{leaderContractor}</strong>
-                </p>
-              </div>
-            </div>
-
-            <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-[11px] text-slate-600 dark:text-slate-400 flex items-start gap-2">
-              <Shield className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-              <span>
-                <strong>Otoritas Terbatas:</strong> Sebagai Leader, Anda hanya berwenang membuat dan mengelola akun <strong>Installer (Teknisi)</strong> pada mitra kontraktor ini.
-              </span>
-            </div>
-
-            <form onSubmit={handleAddInstaller} className="space-y-3">
-              <div>
-                <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
-                  Nama Lengkap Teknisi <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Contoh: Budi Santoso"
-                  value={instName}
-                  onChange={e => setInstName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
-                  Username Unik <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Contoh: budi.santoso"
-                  value={instUsername}
-                  onChange={e => setInstUsername(e.target.value.toLowerCase().replace(/\s+/g, ''))}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg font-mono text-slate-800 dark:text-slate-200"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
-                  Nomor Telepon / WhatsApp <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="tel"
-                  required
-                  placeholder="Contoh: 081234567890"
-                  value={instPhone}
-                  onChange={e => setInstPhone(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
-                  Alamat Email (Opsional)
-                </label>
-                <input
-                  type="email"
-                  placeholder="teknisi@mitra.com"
-                  value={instEmail}
-                  onChange={e => setInstEmail(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-sm transition-all"
-              >
-                Daftarkan Teknisi
-              </button>
-            </form>
-          </div>
-
-          {/* List of Installers */}
-          <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs space-y-4 text-xs">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
-              <h4 className="font-bold text-slate-900 dark:text-white text-xs flex items-center gap-2">
-                <Users2 className="w-4 h-4 text-emerald-600" />
-                <span>Daftar Tim Teknisi Aktif ({myInstallers.length})</span>
-              </h4>
-
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
-                <input
-                  type="text"
-                  placeholder="Cari nama / username..."
-                  value={installerSearch}
-                  onChange={e => setInstallerSearch(e.target.value)}
-                  className="pl-8 pr-3 py-1 bg-slate-50 dark:bg-slate-800 border rounded-lg text-xs"
-                />
-              </div>
-            </div>
-
-            <div className="divide-y border rounded-xl overflow-hidden">
-              {myInstallers
-                .filter(u =>
-                  u.name.toLowerCase().includes(installerSearch.toLowerCase()) ||
-                  u.username.toLowerCase().includes(installerSearch.toLowerCase())
-                )
-                .map(inst => {
-                  const instTickets = contractorTickets.filter(t => t.installerName === inst.name);
-                  return (
-                    <div
-                      key={inst.id}
-                      className="p-3.5 bg-white dark:bg-slate-900 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/40"
-                    >
-                      <div>
-                        <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                          <span>{inst.name}</span>
-                          <span className="font-mono text-slate-400 font-normal">@{inst.username}</span>
-                        </div>
-                        <div className="text-[11px] text-slate-500 mt-0.5">
-                          WhatsApp: {inst.phone || '-'} · Area: {inst.area || 'Semua'}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                        <span className="font-mono font-bold text-indigo-600 text-[11px]">
-                          {instTickets.length} WO Ditugaskan
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedInstallerForDetail(inst)}
-                          className="px-2.5 py-1 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 rounded-lg font-semibold text-xs"
-                        >
-                          Detail 7 Tab
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ============================================================ */}
-      {/* TAB 4: PENGATURAN KUOTA BEBAN TEKNISI                        */}
+      {/* TAB 4: PENGATURAN KUOTA & KOLOM VISIBILITAS                  */}
       {/* ============================================================ */}
       {activeTab === 'quota_settings' && (
-        <div className="max-w-2xl bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs space-y-5 text-xs">
-          <div className="flex items-center gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
-            <div className="p-2.5 bg-purple-100 dark:bg-purple-950 text-purple-600 rounded-xl">
-              <Sliders className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-bold text-sm text-slate-900 dark:text-white">
-                Pengaturan Batas Kuota Beban Teknisi
-              </h3>
-              <p className="text-[11px] text-slate-500">
-                Kontrol limit maksimal penugasan Work Order per hari untuk teknisi di bawah {leaderContractor}
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block font-bold text-slate-800 dark:text-slate-200 mb-1">
-                Batas Default Maksimal WO per Hari:
-              </label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="number"
-                  min={1}
-                  max={12}
-                  value={quotaSettings.defaultMaxDailyQuota}
-                  onChange={e => saveQuotaSettings({ defaultMaxDailyQuota: Number(e.target.value) })}
-                  className="w-24 px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border rounded-lg font-mono font-bold text-sm"
-                />
-                <span className="text-slate-500">WO per hari per teknisi</span>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
+          {/* Card 1: Batas Kuota Beban Teknisi */}
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs space-y-5">
+            <div className="flex items-center gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="p-2.5 bg-purple-100 dark:bg-purple-950 text-purple-600 rounded-xl">
+                <Sliders className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                  Pengaturan Batas Kuota Beban Teknisi
+                </h3>
+                <p className="text-[11px] text-slate-500">
+                  Kontrol limit maksimal penugasan Work Order per hari untuk teknisi di bawah {leaderContractor}
+                </p>
               </div>
             </div>
 
-            <div className="pt-3 border-t">
-              <label className="flex items-center justify-between cursor-pointer">
-                <div>
-                  <span className="font-bold text-slate-800 dark:text-slate-200 block">
-                    Mode Pembatasan Ketat (Strict Limit Enforcement)
-                  </span>
-                  <span className="text-[11px] text-slate-500 block">
-                    Jika aktif: sistem akan menolak penugasan jika kuota teknisi telah penuh. Jika mati: sistem memberikan pop-up peringatan konfirmasi.
-                  </span>
+            <div className="space-y-4">
+              <div>
+                <label className="block font-bold text-slate-800 dark:text-slate-200 mb-1">
+                  Batas Default Maksimal WO per Hari:
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    min={1}
+                    max={12}
+                    value={quotaSettings.defaultMaxDailyQuota}
+                    onChange={e => saveQuotaSettings({ defaultMaxDailyQuota: Number(e.target.value) })}
+                    className="w-24 px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border rounded-lg font-mono font-bold text-sm"
+                  />
+                  <span className="text-slate-500">WO per hari per teknisi</span>
                 </div>
-                <input
-                  type="checkbox"
-                  checked={quotaSettings.enforceStrictLimit}
-                  onChange={e => saveQuotaSettings({ enforceStrictLimit: e.target.checked })}
-                  className="w-4 h-4 text-indigo-600 rounded"
-                />
-              </label>
+              </div>
+
+              <div className="pt-3 border-t">
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div>
+                    <span className="font-bold text-slate-800 dark:text-slate-200 block">
+                      Mode Pembatasan Ketat (Strict Limit Enforcement)
+                    </span>
+                    <span className="text-[11px] text-slate-500 block">
+                      Jika aktif: sistem akan menolak penugasan jika kuota teknisi telah penuh. Jika mati: sistem memberikan pop-up peringatan konfirmasi.
+                    </span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={quotaSettings.enforceStrictLimit}
+                    onChange={e => saveQuotaSettings({ enforceStrictLimit: e.target.checked })}
+                    className="w-4 h-4 text-indigo-600 rounded cursor-pointer"
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 2: Pengaturan Kolom Visibilitas Tabel */}
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs space-y-5">
+            <div className="flex items-center gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="p-2.5 bg-indigo-100 dark:bg-indigo-950 text-indigo-600 rounded-xl">
+                <Table className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                  Pengaturan Kolom Visibilitas Tabel
+                </h3>
+                <p className="text-[11px] text-slate-500">
+                  Kustomisasi kolom yang tampil pada tabel Assign WO dan Dashboard Leader
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                Pilih kolom mana saja yang ingin Anda tampilkan atau sembunyikan sesuai alur kerja lapangan: ID Customer, WO Number, Alamat, Status, Teknisi, Slot Waktu, Kontak, dan Tanggal WO.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => setIsColumnModalOpen(true)}
+                className="w-full py-2.5 px-4 bg-[#5B35B1] hover:bg-[#3B1D78] text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+              >
+                <Sliders className="w-4 h-4" />
+                <span>Buka Pengaturan Kolom Tabel</span>
+              </button>
             </div>
           </div>
         </div>

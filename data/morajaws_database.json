@@ -711,7 +711,7 @@
     "revokeOnDeactivate": true,
     "revokeOnPasswordChange": true
   },
-  "operationalDateOverride": "2026-10-28",
+  "operationalDateOverride": null,
   "attachments": [],
   "sessions": [
     {

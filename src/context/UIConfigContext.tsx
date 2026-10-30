@@ -51,6 +51,8 @@ interface UIConfigContextType {
   menuCategories: string[];
   updateNavigationItem: (id: string, updates: Partial<NavigationMenuItem>) => void;
   moveNavigationItem: (id: string, direction: 'up' | 'down') => void;
+  renameCategory: (oldCategory: string, newCategory: string) => void;
+  moveCategory: (category: string, direction: 'up' | 'down') => void;
   setMenuCategories: (categories: string[]) => void;
   resetNavigationMenu: () => void;
 
@@ -72,45 +74,58 @@ export interface NavigationMenuItem {
   category: string;
   order: number;
   visible: boolean;
+  roles?: string[];
+  badge?: string | number;
+  badgeColor?: 'purple' | 'amber' | 'emerald' | 'rose';
+  highlight?: boolean;
 }
 
 export const DEFAULT_MENU_CATEGORIES = [
-  'Dispatch Management',
-  'Menu Leader',
-  'Portal Teknisi',
-  'Menu Tambahan'
+  'Dashboard',
+  'Operasional',
+  'WO CONTRACTOR',
+  'TASK INSTALLER',
+  'Pelanggan & Komunikasi',
+  'Laporan',
+  'Setup'
 ];
 
 export const DEFAULT_NAVIGATION_ITEMS: NavigationMenuItem[] = [
-  // Dispatch Management
-  { id: 'tickets', label: 'TICKET MYREPUBLIC', category: 'Dispatch Management', order: 1, visible: true },
-  { id: 'form_sameday', label: 'Form Sameday', category: 'Dispatch Management', order: 2, visible: true },
-  { id: 'report_data_wo', label: 'Report Data WO', category: 'Dispatch Management', order: 3, visible: true },
-  { id: 'schedule', label: 'Schedule', category: 'Dispatch Management', order: 4, visible: true },
-  { id: 'login_logs', label: 'Login Log', category: 'Dispatch Management', order: 5, visible: true },
-  { id: 'setting_droplist', label: 'Setting Droplist', category: 'Dispatch Management', order: 6, visible: true },
+  // Dashboard
+  { id: 'dashboard', label: 'Dashboard Monitoring', category: 'Dashboard', order: 1, visible: true, roles: ['super_admin', 'dispatch', 'leader', 'management_data'] },
 
-  // Menu Leader
-  { id: 'leader_portal', label: 'Dashboard Leader', category: 'Menu Leader', order: 7, visible: true },
-  { id: 'location_basecamp', label: 'Kontraktor & Basecamp', category: 'Menu Leader', order: 8, visible: true },
+  // Operasional
+  { id: 'tickets', label: 'Work Order Management', category: 'Operasional', order: 2, visible: true, roles: ['super_admin', 'dispatch'] },
+  { id: 'schedule', label: 'Jadwal & Kalender', category: 'Operasional', order: 3, visible: true, roles: ['super_admin', 'dispatch', 'leader'] },
+  { id: 'form_sameday', label: 'Form Sameday Express', category: 'Operasional', order: 4, visible: true, roles: ['dispatch'] },
+  { id: 'import', label: 'Import Data WO', category: 'Operasional', order: 5, visible: true, roles: ['super_admin', 'dispatch', 'management_data'] },
 
-  // Portal Teknisi
-  { id: 'installer_portal', label: 'Tugas Saya & Laporan', category: 'Portal Teknisi', order: 9, visible: true },
+  // WO CONTRACTOR
+  { id: 'wo_assignment', label: 'Assign WO', category: 'WO CONTRACTOR', order: 6, visible: true, roles: ['super_admin', 'dispatch', 'leader'] },
+  { id: 'progress_dashboard', label: 'Dashboard Progress WO', category: 'WO CONTRACTOR', order: 7, visible: true, roles: ['super_admin', 'dispatch', 'leader'] },
+  { id: 'installer_mgmt', label: 'Pendaftaran Akun Teknisi', category: 'WO CONTRACTOR', order: 8, visible: true, roles: ['super_admin', 'leader'] },
+  { id: 'quota_settings', label: 'Pengaturan Kuota & Kolom Visibilitas', category: 'WO CONTRACTOR', order: 9, visible: true, roles: ['super_admin', 'leader'] },
+  { id: 'contractor_recap', label: 'Rekap Total WO per Kontraktor', category: 'WO CONTRACTOR', order: 10, visible: true, roles: ['super_admin', 'dispatch', 'leader', 'management_data'] },
+  { id: 'location_basecamp', label: 'Kontraktor & Basecamp', category: 'WO CONTRACTOR', order: 11, visible: true, roles: ['super_admin', 'dispatch', 'leader'] },
 
-  // Menu Tambahan
-  { id: 'dashboard', label: 'Dashboard Monitoring', category: 'Menu Tambahan', order: 10, visible: true },
-  { id: 'contact_centre', label: 'Contact Centre', category: 'Menu Tambahan', order: 11, visible: true },
-  { id: 'database_management', label: 'Database Application', category: 'Menu Tambahan', order: 12, visible: true },
-  { id: 'management_data_portal', label: 'Management Data Portal', category: 'Menu Tambahan', order: 13, visible: true },
-  { id: 'database_sync', label: 'Monitoring Sinkronisasi', category: 'Menu Tambahan', order: 14, visible: true },
-  { id: 'import', label: 'Import Data WO', category: 'Menu Tambahan', order: 15, visible: true },
-  { id: 'users', label: 'Management User', category: 'Menu Tambahan', order: 16, visible: true },
-  { id: 'management_role', label: 'Management Role', category: 'Menu Tambahan', order: 17, visible: true },
-  { id: 'settings', label: 'Field Mapping', category: 'Menu Tambahan', order: 18, visible: true },
-  { id: 'sheets_sync', label: 'Google Sheets Sync', category: 'Menu Tambahan', order: 19, visible: true },
-  { id: 'ui_builder', label: 'UI Configuration Builder', category: 'Menu Tambahan', order: 20, visible: true },
-  { id: 'audit_logs', label: 'Audit Log & History', category: 'Menu Tambahan', order: 21, visible: true },
-  { id: 'system_health', label: 'System Health', category: 'Menu Tambahan', order: 22, visible: true }
+  // TASK INSTALLER
+  { id: 'installer_portal', label: 'Portal Teknisi Lapangan (Tugas Saya)', category: 'TASK INSTALLER', order: 12, visible: true, roles: ['super_admin', 'dispatch', 'installer'] },
+  { id: 'installer_progress', label: 'Dashboard Progress Teknisi', category: 'TASK INSTALLER', order: 13, visible: true, roles: ['super_admin', 'dispatch', 'installer'] },
+  { id: 'installer_history', label: 'Riwayat Pekerjaan Teknisi', category: 'TASK INSTALLER', order: 14, visible: true, roles: ['super_admin', 'dispatch', 'installer'] },
+
+  // Pelanggan & Komunikasi
+  { id: 'contact_centre', label: 'Contact Centre', category: 'Pelanggan & Komunikasi', order: 15, visible: true, roles: ['super_admin', 'dispatch', 'leader', 'installer'] },
+  { id: 'templates', label: 'Template WhatsApp', category: 'Pelanggan & Komunikasi', order: 16, visible: true, roles: ['super_admin', 'dispatch', 'leader'] },
+
+  // Laporan
+  { id: 'report_data_wo', label: 'Report Data WO', category: 'Laporan', order: 17, visible: true, roles: ['super_admin', 'dispatch', 'management_data'] },
+  { id: 'audit_logs', label: 'Audit Trail Log', category: 'Laporan', order: 18, visible: true, roles: ['super_admin', 'it_support'] },
+  { id: 'login_logs', label: 'Riwayat Sesi Login', category: 'Laporan', order: 19, visible: true, roles: ['super_admin', 'dispatch', 'it_support'] },
+  { id: 'system_health', label: 'Kesehatan Sistem', category: 'Laporan', order: 20, visible: true, roles: ['super_admin', 'it_support'] },
+
+  // Setup
+  { id: 'setup', label: 'Setup Terpusat MoraJaws', category: 'Setup', order: 21, visible: true, roles: ['super_admin', 'dispatch', 'leader', 'management_data', 'it_support'] },
+  { id: 'offline_sync', label: 'Sinkronisasi Offline', category: 'Setup', order: 22, visible: true, roles: ['super_admin', 'dispatch', 'leader', 'installer'] }
 ];
 
 const STORAGE_KEY = 'dispatch_system_ui_config_v4';
@@ -281,6 +296,27 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         list[index + 1].order = tempOrder;
       }
       return [...list].sort((a, b) => a.order - b.order);
+    });
+  };
+
+  const renameCategory = (oldCategory: string, newCategory: string) => {
+    const trimmed = newCategory.trim();
+    if (!trimmed || oldCategory === trimmed) return;
+    setMenuCategoriesState(prev => prev.map(c => c === oldCategory ? trimmed : c));
+    setNavigationItemsState(prev => prev.map(item => item.category === oldCategory ? { ...item, category: trimmed } : item));
+  };
+
+  const moveCategory = (category: string, direction: 'up' | 'down') => {
+    setMenuCategoriesState(prev => {
+      const idx = prev.indexOf(category);
+      if (idx === -1) return prev;
+      const copy = [...prev];
+      if (direction === 'up' && idx > 0) {
+        [copy[idx], copy[idx - 1]] = [copy[idx - 1], copy[idx]];
+      } else if (direction === 'down' && idx < copy.length - 1) {
+        [copy[idx], copy[idx + 1]] = [copy[idx + 1], copy[idx]];
+      }
+      return copy;
     });
   };
 
@@ -848,6 +884,8 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         menuCategories,
         updateNavigationItem,
         moveNavigationItem,
+        renameCategory,
+        moveCategory,
         setMenuCategories,
         resetNavigationMenu,
         exportConfigJson,

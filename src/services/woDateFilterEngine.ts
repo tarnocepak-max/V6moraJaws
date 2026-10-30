@@ -1,24 +1,19 @@
 /**
  * MoraJaws Centralized Work Order Date Filtering & Cross-Date Search Engine
  *
- * Implements deterministic Asia/Jakarta (WIB) date evaluation:
- * - WO Date is the single primary reference (NOT Appointment Date, NOT schedule date, NOT upload date, NOT createdAt)
- * - Candidate fields for WO Date in order of priority:
- *   1. ticket.woDate
- *   2. ticket.workOrderDate
- *   3. ticket.tanggalWO
- *   4. ticket.dateWO
- *   5. ticket.date
- *   6. ticket.ticketDate
- * - Strict exclusion of Appointment Date, scheduleAppointmentDate, dateUpload, createdAt
+ * Implements deterministic Asia/Jakarta (WIB) date evaluation based on APPOINTMENT DATE:
+ * - Appointment Date is the SOLE primary reference for WO date
+ * - Strictly excludes import date, upload date, createdAt, or assignment date
  * - Asia/Jakarta (WIB) timezone with 00:00 midnight auto-rollover
- * - Role-specific views:
- *   - Staff (management_data / staff): Today's WO ONLY (No cross-date search)
- *   - Superadmin: Default today's WO; cross-date search permitted via WO Number or Customer ID ONLY
- *   - Dispatch: Default today's WO; cross-date search permitted via WO Number or Customer ID ONLY
- *   - Leader: Today's WO and Tomorrow's WO (today main view, tomorrow accessible via tab/toggle; no yesterday)
- *   - Installer: Today's assigned WO ONLY (no past/future cross-date search)
- * - Work Orders without appointment date (or empty appointment date) MUST appear if their WO date is today
+ * - Zero UTC shift to prevent date jumping
+ * - Work Orders without valid Appointment Date are NEVER considered today's WO
+ * - Default view for ALL ROLES (Superadmin, Dispatch, Leader, Installer, Staff) displays ONLY today's WO
+ * - Special privilege for Superadmin & Dispatch:
+ *   - Can track past WO dates
+ *   - Can search upcoming scheduled WO
+ *   - Cross-date search enabled strictly by WO Number or Customer ID across all dates
+ *   - Search does not alter the underlying default today's filter
+ * - Leader, Installer, and other staff remain strictly restricted to today's Appointment Date
  */
 
 import { Ticket, User, UserRole } from '../types/index.ts';
@@ -124,21 +119,24 @@ export function normalizeDateToJakarta(val: unknown): string | null {
 
 /**
  * 1. getTicketWODate(ticket)
- * Extracts authentic WO Date from Ticket, explicitly excluding appointment dates and upload metadata.
+ * Extracts authentic Appointment Date from Ticket as the sole reference.
+ * Work Orders without valid Appointment Date return null (never assumed today).
  */
 export function getTicketWODate(ticket: unknown): string | null {
   if (!ticket || typeof ticket !== 'object') return null;
 
   const t = ticket as Record<string, unknown>;
 
-  // Strict priority order of legitimate WO date candidates
+  // Strict priority order of legitimate Appointment Date candidates
   const candidates = [
-    t.woDate,
-    t.workOrderDate,
-    t.tanggalWO,
-    t.dateWO,
-    t.date,
-    t.ticketDate
+    t.appointmentDate,
+    t.scheduleAppointment,
+    t.scheduleAppointmentDate,
+    t.scheduleDate,
+    t.scheduledDate,
+    t.appointment_date,
+    t.schedule_date,
+    t.date
   ];
 
   for (const candidate of candidates) {

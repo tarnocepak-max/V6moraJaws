@@ -889,13 +889,33 @@ function requireDispatch(req: AuthenticatedRequest, res: Response, next: NextFun
   });
 }
 
-// Scoping helper for tickets according to User Role
+// Deterministic Jakarta Date string helper
+function getJakartaTodayString(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date());
+}
+
+// Scoping helper for tickets according to User Role & Appointment Date
 function scopeTicketsForUser(tickets: any[], user: ServerUser): any[] {
+  const jakartaToday = getJakartaTodayString();
+
   return tickets.filter(t => {
     if (t.isDeleted) return false;
+    // Super Admin, Dispatch, and Data Management have backend access to all tickets (filtered by default to today in frontend, with cross-date search)
     if (user.role === 'super_admin' || user.role === 'dispatch' || user.role === 'management_data') {
       return true;
     }
+
+    // Role Leader, Installer, and other field staff are STRICTLY locked to Appointment Date === Today
+    const ticketAppointmentDate = getBackendTicketWODate(t);
+    if (!ticketAppointmentDate || ticketAppointmentDate !== jakartaToday) {
+      return false;
+    }
+
     const ticketContractor = (t.contactorName || t.contractorName || '').toLowerCase().trim();
     const ticketArea = (t.area || '').toLowerCase().trim();
 
@@ -924,7 +944,17 @@ function scopeTicketsForUser(tickets: any[], user: ServerUser): any[] {
 
 function getBackendTicketWODate(t: any): string | null {
   if (!t || typeof t !== 'object') return null;
-  const candidates = [t.woDate, t.workOrderDate, t.tanggalWO, t.dateWO, t.date, t.ticketDate];
+  // Strict Appointment Date extraction candidate list (Requirement 1: Appointment Date is the SOLE date reference)
+  const candidates = [
+    t.appointmentDate,
+    t.scheduleAppointment,
+    t.scheduleAppointmentDate,
+    t.scheduleDate,
+    t.scheduledDate,
+    t.appointment_date,
+    t.schedule_date,
+    t.date
+  ];
   for (const c of candidates) {
     if (c !== undefined && c !== null && c !== '') {
       const match = String(c).match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);

@@ -9,6 +9,8 @@ import { MoraJawsSoundProvider } from './context/SoundContext';
 import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
 import { AndroidBottomNav } from './components/layout/AndroidBottomNav';
+import { LeaderBottomNav, LeaderTabType } from './components/layout/LeaderBottomNav';
+import { SetupHubView } from './components/setup/SetupHubView';
 
 import { DashboardOverview } from './components/dashboard/DashboardOverview';
 import { TicketsTable } from './components/tickets/TicketsTable';
@@ -49,7 +51,7 @@ import { Ticket } from './types';
 import { Menu, Database } from 'lucide-react';
 
 const MainLayout: React.FC = () => {
-  const { currentUser, isLoggedIn, openOfflineSyncCenter } = useApp();
+  const { currentUser, isLoggedIn, tickets, openOfflineSyncCenter } = useApp();
   const { config, setSidebarState, isMobileView } = useUIConfig();
 
   const [activeTab, setActiveTab] = useState<string>(() => {
@@ -60,6 +62,7 @@ const MainLayout: React.FC = () => {
     return 'dashboard';
   });
 
+  const [leaderSubTab, setLeaderSubTab] = useState<LeaderTabType>('wo_assignment');
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [detailDefaultTab, setDetailDefaultTab] = useState<'overview' | 'report' | 'chat' | 'history'>('overview');
@@ -138,6 +141,8 @@ const MainLayout: React.FC = () => {
           <LeaderPortal
             onSelectTicket={handleOpenTicketDetail}
             onOpenWhatsApp={handleOpenWhatsAppModal}
+            activeLeaderTab={leaderSubTab}
+            onLeaderTabChange={tab => setLeaderSubTab(tab)}
           />
         );
       case 'location_basecamp':
@@ -219,6 +224,9 @@ const MainLayout: React.FC = () => {
           </div>
         );
 
+      case 'setup':
+        return <SetupHubView onNavigateTab={tab => setActiveTab(tab)} />;
+
       default:
         return <DashboardOverview onNavigate={tab => setActiveTab(tab)} />;
     }
@@ -254,7 +262,11 @@ const MainLayout: React.FC = () => {
         {/* Content Viewport with mobile bottom navigation spacing */}
         <main
           className={`flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8 ${
-            isMobileView && config.device?.android?.showBottomNavigation !== false ? 'pb-24' : ''
+            currentUser.role === 'leader'
+              ? 'pb-24'
+              : isMobileView && config.device?.android?.showBottomNavigation !== false
+              ? 'pb-24'
+              : ''
           }`}
         >
           <div
@@ -269,21 +281,32 @@ const MainLayout: React.FC = () => {
         </main>
       </div>
 
-      {/* Android / Mobile Bottom Ergonomic Navigation */}
-      {isMobileView && config.device?.android?.showBottomNavigation !== false && (
-        <AndroidBottomNav
-          activeTab={activeTab}
-          onNavigate={tab => {
-            setActiveTab(tab);
-            if (currentSidebarState === 'expanded') {
-              setSidebarState('closed');
-            }
+      {/* Bottom Ergonomic Navigation: Dedicated 4-item Bar for Leader, Standard Android for others */}
+      {currentUser.role === 'leader' ? (
+        <LeaderBottomNav
+          activeTab={leaderSubTab}
+          onTabChange={tab => {
+            setActiveTab('leader_portal');
+            setLeaderSubTab(tab);
           }}
-          isMenuOpen={currentSidebarState === 'expanded'}
-          onToggleMenu={() => {
-            setSidebarState(currentSidebarState === 'expanded' ? 'closed' : 'expanded');
-          }}
+          unassignedCount={tickets.filter(t => !t.installerName && !t.isArchived).length}
         />
+      ) : (
+        isMobileView && config.device?.android?.showBottomNavigation !== false && (
+          <AndroidBottomNav
+            activeTab={activeTab}
+            onNavigate={tab => {
+              setActiveTab(tab);
+              if (currentSidebarState === 'expanded') {
+                setSidebarState('closed');
+              }
+            }}
+            isMenuOpen={currentSidebarState === 'expanded'}
+            onToggleMenu={() => {
+              setSidebarState(currentSidebarState === 'expanded' ? 'closed' : 'expanded');
+            }}
+          />
+        )
       )}
 
       {/* Modals & Offline Alerts */}
