@@ -5,7 +5,8 @@ export type LeaderTabType =
   | 'wo_assignment'
   | 'progress_dashboard'
   | 'installer_mgmt'
-  | 'quota_settings';
+  | 'quota_settings'
+  | 'contractor_recap';
 
 interface LeaderBottomNavProps {
   activeTab: LeaderTabType;

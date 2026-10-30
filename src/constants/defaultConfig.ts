@@ -240,6 +240,19 @@ export const DEFAULT_UI_CONFIG: UIConfiguration = {
       actionButtonsLayout: 'inline_icons',
       multiColumnDetail: true
     }
+  },
+  navigationSettings: {
+    defaultMode: 'static',
+    roleModes: {
+      super_admin: 'accordion',
+      dispatch: 'accordion',
+      leader: 'static',
+      installer: 'static',
+      management_data: 'accordion',
+      it_support: 'accordion'
+    },
+    categoryModes: {},
+    allowMultipleOpenGroups: true
   }
 };
 

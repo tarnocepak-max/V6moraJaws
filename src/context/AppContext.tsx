@@ -206,6 +206,7 @@ interface AppContextType {
 
   // Audit Logs & Activity
   auditLogs: AuditLog[];
+  addAuditLog: (action: string, entity: AuditLog['entity'], entityId: string, details: string) => void;
   ticketActivities: TicketActivity[];
   waLogs: WhatsAppMessageLog[];
 
@@ -3775,6 +3776,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         canonicalFields,
         updateCanonicalFieldConfig,
         auditLogs,
+        addAuditLog,
         ticketActivities,
         waLogs,
         googleSheetsConfig,

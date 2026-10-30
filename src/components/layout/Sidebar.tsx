@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useUIConfig } from '../../context/UIConfigContext';
 import { MoraJawsLogo } from '../common/MoraJawsLogo';
@@ -9,33 +9,31 @@ import {
   Users2,
   Wrench,
   MessageSquareQuote,
-  GitBranch,
   Sliders,
   History,
-  Settings as SettingsIcon,
   ChevronDown,
-  ChevronRight,
-  ChevronLeft,
-  Minus,
   X,
-  Maximize2,
-  Users,
   RefreshCw,
   Database,
-  Server,
   KeyRound,
   LogOut,
   Zap,
   Calendar,
-  ListFilter,
   Activity,
   MessageSquare,
   ShieldCheck,
   Building2,
   Layers,
   FileText,
-  Radio,
-  Smartphone
+  UserCheck,
+  BarChart3,
+  UserPlus,
+  SlidersHorizontal,
+  FolderTree,
+  Bell,
+  Settings as SettingsIcon,
+  CheckCircle2,
+  ListOrdered
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -69,25 +67,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onChangeState
 }) => {
   const { currentUser, tickets, logout, setIsSessionModalOpen } = useApp();
-  const { isMobileView, config } = useUIConfig();
+  const { isMobileView, config, navigationSettings, navigationItems } = useUIConfig();
 
-  const isMinimized = sidebarState === 'minimized';
-  const totalActiveTickets = tickets.filter(t => !t.isArchived).length;
-  const unassignedCount = tickets.filter(t => !t.installerName && !t.isArchived).length;
+  const totalActiveTickets = tickets.filter(t => !t.isArchived && !t.isDeleted).length;
+  const unassignedCount = tickets.filter(t => !t.installerName && !t.isArchived && !t.isDeleted).length;
   const userRole = currentUser?.role || 'installer';
 
-  // 6 Accordion Menu Groups defined strictly according to requirement
-  const menuGroups: NavGroup[] = [
+  // Navigation mode determined by Role and Category Overrides from Firestore
+  const roleDisplayMode = useMemo(() => {
+    const rModes = navigationSettings?.roleModes || {
+      super_admin: 'accordion',
+      dispatch: 'accordion',
+      leader: 'static',
+      installer: 'static',
+      management_data: 'accordion',
+      it_support: 'accordion'
+    };
+    return rModes[userRole as keyof typeof rModes] || navigationSettings?.defaultMode || 'static';
+  }, [navigationSettings, userRole]);
+
+  // Master definition of 7 Navigation Groups aligned strictly with BAGIAN 2.2
+  const baseMenuGroups: NavGroup[] = useMemo(() => [
     {
       id: 'dashboard',
-      title: 'Dashboard',
+      title: 'DASHBOARD',
       icon: LayoutDashboard,
       items: [
         {
           id: 'dashboard',
           label: 'Dashboard Monitoring',
           icon: LayoutDashboard,
-          roles: ['super_admin', 'dispatch', 'leader', 'management_data']
+          roles: ['super_admin', 'dispatch', 'leader', 'management_data', 'it_support']
         },
         {
           id: 'tickets',
@@ -101,7 +111,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'operasional',
-      title: 'Operasional',
+      title: 'OPERASIONAL',
       icon: Layers,
       items: [
         {
@@ -119,51 +129,102 @@ export const Sidebar: React.FC<SidebarProps> = ({
           roles: ['super_admin', 'dispatch', 'leader']
         },
         {
+          id: 'import',
+          label: 'Import Data WO',
+          icon: FileSpreadsheet,
+          roles: ['super_admin', 'dispatch', 'management_data']
+        },
+        {
           id: 'form_sameday',
           label: 'Form Sameday Express',
           icon: Zap,
           badge: 'Express',
           badgeColor: 'amber',
           roles: ['dispatch']
-        },
-        {
-          id: 'import',
-          label: 'Import Data WO',
-          icon: FileSpreadsheet,
-          roles: ['super_admin', 'dispatch', 'management_data']
         }
       ]
     },
     {
-      id: 'teknisi',
-      title: 'Teknisi',
-      icon: Users2,
+      id: 'wo_contractor',
+      title: 'WO CONTRACTOR',
+      icon: Building2,
       items: [
         {
-          id: 'leader_portal',
-          label: 'Dashboard Leader',
-          icon: Users2,
-          badge: unassignedCount > 0 ? `${unassignedCount} Unassign` : undefined,
+          id: 'wo_assignment',
+          label: 'Assign WO',
+          icon: UserCheck,
+          badge: unassignedCount > 0 ? `${unassignedCount} Belum` : undefined,
           badgeColor: 'amber',
+          roles: ['super_admin', 'dispatch', 'leader']
+        },
+        {
+          id: 'progress_dashboard',
+          label: 'Dashboard Progress WO',
+          icon: BarChart3,
+          badge: 'Live',
+          badgeColor: 'purple',
+          roles: ['super_admin', 'dispatch', 'leader']
+        },
+        {
+          id: 'installer_mgmt',
+          label: 'Pendaftaran Akun Teknisi',
+          icon: UserPlus,
           roles: ['super_admin', 'leader']
         },
         {
-          id: 'installer_portal',
-          label: 'Portal Teknisi Lapangan',
-          icon: Wrench,
-          roles: ['super_admin', 'leader', 'installer']
+          id: 'quota_settings',
+          label: 'Pengaturan Kuota & Kolom Visibilitas',
+          icon: SlidersHorizontal,
+          roles: ['super_admin', 'leader']
+        },
+        {
+          id: 'contractor_recap',
+          label: 'Rekap Total WO per Kontraktor',
+          icon: FileText,
+          roles: ['super_admin', 'dispatch', 'leader', 'management_data']
         },
         {
           id: 'location_basecamp',
           label: 'Kontraktor & Basecamp',
           icon: Building2,
-          roles: ['super_admin', 'leader']
+          roles: ['super_admin', 'dispatch', 'leader']
+        }
+      ]
+    },
+    {
+      id: 'task_installer',
+      title: 'TASK INSTALLER',
+      icon: Wrench,
+      items: [
+        {
+          id: 'installer_portal',
+          label: 'Portal Teknisi Lapangan',
+          icon: Wrench,
+          roles: ['super_admin', 'dispatch', 'installer']
+        },
+        {
+          id: 'installer_tasks',
+          label: 'Tugas Saya',
+          icon: CheckCircle2,
+          roles: ['super_admin', 'dispatch', 'installer']
+        },
+        {
+          id: 'installer_progress',
+          label: 'Dashboard Progress Teknisi',
+          icon: BarChart3,
+          roles: ['super_admin', 'dispatch', 'installer']
+        },
+        {
+          id: 'installer_history',
+          label: 'Riwayat Pekerjaan Teknisi',
+          icon: History,
+          roles: ['super_admin', 'dispatch', 'installer']
         }
       ]
     },
     {
       id: 'pelanggan',
-      title: 'Pelanggan',
+      title: 'PELANGGAN',
       icon: MessageSquare,
       items: [
         {
@@ -182,14 +243,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'laporan',
-      title: 'Laporan',
-      icon: FileText,
+      title: 'LAPORAN',
+      icon: FileSpreadsheet,
       items: [
         {
           id: 'report_data_wo',
           label: 'Report Data WO',
           icon: FileSpreadsheet,
           roles: ['super_admin', 'dispatch', 'management_data']
+        },
+        {
+          id: 'report_installer',
+          label: 'Report Installer',
+          icon: FileText,
+          roles: ['super_admin', 'dispatch', 'management_data', 'leader']
+        },
+        {
+          id: 'rekap_laporan',
+          label: 'Rekap Laporan',
+          icon: Layers,
+          roles: ['super_admin', 'dispatch', 'leader', 'management_data']
         },
         {
           id: 'audit_logs',
@@ -215,7 +288,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'setup',
-      title: 'Setup',
+      title: 'SETUP',
       icon: Sliders,
       items: [
         {
@@ -228,53 +301,139 @@ export const Sidebar: React.FC<SidebarProps> = ({
           roles: ['super_admin', 'dispatch', 'leader', 'management_data', 'it_support']
         },
         {
+          id: 'nav_config',
+          label: 'Konfigurasi Menu Navigasi',
+          icon: FolderTree,
+          roles: ['super_admin']
+        },
+        {
+          id: 'users',
+          label: 'Manajemen Pengguna',
+          icon: Users2,
+          roles: ['super_admin']
+        },
+        {
+          id: 'management_role',
+          label: 'Role & Permission',
+          icon: ShieldCheck,
+          roles: ['super_admin']
+        },
+        {
+          id: 'database_management',
+          label: 'Pengaturan Database',
+          icon: Database,
+          roles: ['super_admin']
+        },
+        {
+          id: 'setting_droplist_status',
+          label: 'Kategori Report',
+          icon: ListOrdered,
+          roles: ['super_admin', 'dispatch']
+        },
+        {
+          id: 'setting_droplist_reason',
+          label: 'Reason Report',
+          icon: FileText,
+          roles: ['super_admin', 'dispatch']
+        },
+        {
+          id: 'setting_droplist_rootcause',
+          label: 'Rootcause',
+          icon: Activity,
+          roles: ['super_admin', 'dispatch']
+        },
+        {
+          id: 'sound_settings',
+          label: 'Pengaturan Notifikasi',
+          icon: Bell,
+          roles: ['super_admin', 'dispatch', 'leader', 'installer']
+        },
+        {
+          id: 'settings',
+          label: 'Pengaturan Sistem',
+          icon: SettingsIcon,
+          roles: ['super_admin']
+        },
+        {
           id: 'offline_sync',
           label: 'Sinkronisasi Offline',
-          icon: Database,
+          icon: RefreshCw,
           roles: ['super_admin', 'dispatch', 'leader', 'installer']
         }
       ]
     }
-  ];
+  ], [totalActiveTickets, unassignedCount]);
 
-  // Filter groups and items by user role
-  const accessibleGroups = menuGroups
-    .map(group => ({
+  // Synchronize item labels with custom names defined in NavigationConfigView if any
+  const customizedGroups = useMemo(() => {
+    const labelMap = new Map<string, string>();
+    if (Array.isArray(navigationItems)) {
+      navigationItems.forEach(item => {
+        if (item.id && item.label) {
+          labelMap.set(item.id, item.label);
+        }
+      });
+    }
+
+    return baseMenuGroups.map(group => ({
       ...group,
-      items: group.items.filter(item => item.roles.includes(userRole))
-    }))
-    .filter(group => group.items.length > 0);
+      items: group.items.map(item => ({
+        ...item,
+        label: labelMap.get(item.id) || item.label
+      }))
+    }));
+  }, [baseMenuGroups, navigationItems]);
 
-  // Accordion state: which groups are expanded
+  // Filter groups and items by current user role permission
+  const accessibleGroups = useMemo(() => {
+    return customizedGroups
+      .map(group => ({
+        ...group,
+        items: group.items.filter(item => item.roles.includes(userRole))
+      }))
+      .filter(group => group.items.length > 0);
+  }, [customizedGroups, userRole]);
+
+  // Accordion state: which groups are currently open (only used when a group is in Accordion mode)
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
     accessibleGroups.forEach(g => {
       // By default open the group containing activeTab, or first 2 groups
-      const hasActive = g.items.some(it => it.id === activeTab || (activeTab.startsWith('setup') && g.id === 'setup'));
-      initial[g.id] = hasActive || g.id === 'dashboard' || g.id === 'operasional';
+      const hasActive = g.items.some(
+        it => it.id === activeTab || (activeTab.startsWith('setup') && g.id === 'setup')
+      );
+      initial[g.id] = hasActive || g.id === 'dashboard' || g.id === 'operasional' || g.id === 'wo_contractor' || g.id === 'task_installer';
     });
     return initial;
   });
 
-  // Keep group open if activeTab changes
+  // Ensure active category is open when activeTab changes
   useEffect(() => {
     accessibleGroups.forEach(g => {
-      if (g.items.some(it => it.id === activeTab || (activeTab === 'setup' && g.id === 'setup'))) {
+      if (g.items.some(it => it.id === activeTab || (activeTab.startsWith('setup') && g.id === 'setup'))) {
         setOpenGroups(prev => ({ ...prev, [g.id]: true }));
       }
     });
-  }, [activeTab]);
+  }, [activeTab, accessibleGroups]);
 
+  // Toggle category group for Accordion mode
   const toggleGroup = (groupId: string) => {
-    setOpenGroups(prev => ({
-      ...prev,
-      [groupId]: !prev[groupId]
-    }));
+    const allowMultiple = navigationSettings?.allowMultipleOpenGroups !== false;
+    setOpenGroups(prev => {
+      if (allowMultiple) {
+        return { ...prev, [groupId]: !prev[groupId] };
+      }
+      // Single open group mode
+      const next: Record<string, boolean> = {};
+      Object.keys(prev).forEach(k => { next[k] = false; });
+      next[groupId] = !prev[groupId];
+      return next;
+    });
   };
 
   const handleItemClick = (id: string) => {
     onNavigate(id);
-    // Auto close on mobile
+    // Auto-close on mobile if configured
     if (isMobileView || (typeof window !== 'undefined' && window.innerWidth < 768)) {
       if (config.device?.android?.autoCloseSidebarOnNavigate !== false) {
         onChangeState('closed');
@@ -290,72 +449,49 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <>
       {/* Mobile Backdrop Overlay */}
       <div
-        className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-45 md:hidden animate-fadeIn"
+        className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs z-45 md:hidden animate-fadeIn"
         onClick={() => onChangeState('closed')}
       />
 
-      {/* Sidebar Container */}
+      {/* Sidebar Main Frame */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 md:relative md:inset-auto md:z-auto bg-[#160D29] text-slate-200 border-r border-[#35105E] transition-all duration-300 ease-in-out flex flex-col shrink-0 shadow-2xl md:shadow-none h-full ${
-          isMinimized ? 'w-18' : 'w-64'
-        }`}
+        className="fixed inset-y-0 left-0 z-50 md:relative md:inset-auto md:z-auto bg-[#160D29] text-slate-200 border-r border-[#35105E] transition-all duration-300 ease-in-out flex flex-col shrink-0 shadow-2xl md:shadow-none h-full w-64 select-none"
       >
         {/* Top Header */}
-        <div className="px-3.5 py-3 border-b border-[#35105E] flex items-center justify-between">
-          {!isMinimized ? (
-            <>
-              <div className="flex items-center gap-2">
-                <MoraJawsLogo size="xs" animated={false} />
-                <span className="font-bold text-[#D8B4FE] uppercase tracking-wider text-[11px]">
-                  Menu Navigasi
-                </span>
-              </div>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => onChangeState('minimized')}
-                  className="p-1.5 text-purple-300 hover:text-white hover:bg-[#35105E] rounded-lg transition-colors cursor-pointer"
-                  title="Kecilkan ke Ikon"
-                >
-                  <Minus className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onChangeState('closed')}
-                  className="p-1.5 text-purple-300 hover:text-rose-400 hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
-                  title="Tutup Menu"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="w-full flex items-center justify-center gap-1">
-              <button
-                type="button"
-                onClick={() => onChangeState('expanded')}
-                className="p-1.5 text-purple-300 hover:text-white hover:bg-[#35105E] rounded-lg transition-colors cursor-pointer"
-                title="Perbesar Menu (Expand)"
-              >
-                <Maximize2 className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => onChangeState('closed')}
-                className="p-1.5 text-purple-300 hover:text-rose-400 hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
-                title="Tutup Menu"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
+        <div className="px-4 py-3.5 border-b border-[#35105E] flex items-center justify-between bg-[#110A21]">
+          <div className="flex items-center gap-2.5">
+            <MoraJawsLogo size="xs" animated={false} />
+            <div className="flex flex-col">
+              <span className="font-extrabold text-[#D8B4FE] uppercase tracking-wider text-[11px] leading-tight">
+                Menu Navigasi
+              </span>
+              <span className="text-[9.5px] text-purple-400 font-medium">
+                Mode: <strong className="text-white capitalize">{roleDisplayMode}</strong>
+              </span>
             </div>
-          )}
+          </div>
+          <button
+            type="button"
+            onClick={() => onChangeState('closed')}
+            className="p-1.5 text-purple-300 hover:text-rose-400 hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
+            title="Tutup Menu"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
-        {/* Accordion Menu List */}
-        <div className="flex-1 py-3 px-2 space-y-2 overflow-y-auto scrollbar-thin">
+        {/* Scrollable Navigation Category Groups */}
+        <div className="flex-1 py-3 px-2.5 space-y-2.5 overflow-y-auto scrollbar-thin">
           {accessibleGroups.map(group => {
             const GroupIcon = group.icon;
-            const isOpen = !!openGroups[group.id];
+
+            // Determine if THIS category uses Accordion or Static
+            const categoryOverride =
+              navigationSettings?.categoryModes?.[group.id] ||
+              navigationSettings?.categoryModes?.[group.title];
+            const isAccordion = categoryOverride ? categoryOverride === 'accordion' : roleDisplayMode === 'accordion';
+
+            const isOpen = isAccordion ? !!openGroups[group.id] : true;
             const hasActiveChild = group.items.some(
               item => activeTab === item.id || (activeTab === 'setup' && group.id === 'setup')
             );
@@ -363,12 +499,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
             return (
               <div
                 key={group.id}
-                className={`rounded-xl transition-all ${
-                  !isMinimized && hasActiveChild ? 'bg-[#251545]/60 border border-[#7135B5]/40' : ''
+                className={`rounded-xl transition-all duration-200 ${
+                  hasActiveChild
+                    ? 'bg-[#251545]/70 border border-[#7135B5]/40 shadow-xs'
+                    : 'bg-[#1C1133]/40 border border-[#35105E]/40'
                 }`}
               >
-                {/* Accordion Header (Only in expanded mode) */}
-                {!isMinimized ? (
+                {/* CATEGORY HEADER */}
+                {isAccordion ? (
+                  // ACCORDION MODE: Interactive Button with Chevron Arrow
                   <button
                     type="button"
                     onClick={() => toggleGroup(group.id)}
@@ -376,7 +515,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   >
                     <div className="flex items-center gap-2.5">
                       <GroupIcon className={`w-4 h-4 ${hasActiveChild ? 'text-[#D8B4FE]' : 'text-purple-400'}`} />
-                      <span className="tracking-wide uppercase text-[11px]">{group.title}</span>
+                      <span className="tracking-wide uppercase text-[11px] font-bold">{group.title}</span>
                     </div>
                     <ChevronDown
                       className={`w-3.5 h-3.5 text-purple-400 transition-transform duration-200 ${
@@ -385,57 +524,58 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     />
                   </button>
                 ) : (
-                  <div className="my-1 border-t border-[#35105E]/80" />
+                  // STATIC NAVIGATION MODE: Clean Static Header, NO Arrow, Submenus ALWAYS Visible
+                  <div className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-extrabold text-purple-300 border-b border-[#35105E]/40">
+                    <GroupIcon className={`w-4 h-4 ${hasActiveChild ? 'text-[#D8B4FE]' : 'text-purple-400'}`} />
+                    <span className="tracking-wider uppercase text-[11px]">{group.title}</span>
+                  </div>
                 )}
 
-                {/* Submenu Items */}
-                {(!isMinimized ? isOpen : true) && (
-                  <div className={`space-y-1 ${!isMinimized ? 'pl-2 pr-1 pt-1 pb-1.5 animate-fadeIn' : ''}`}>
+                {/* SUBMENU ITEMS */}
+                {isOpen && (
+                  <div className="space-y-1 pl-1.5 pr-1 py-1.5 animate-fadeIn">
                     {group.items.map(item => {
                       const Icon = item.icon;
                       const isActive =
                         activeTab === item.id ||
+                        (item.id === 'tickets' && (activeTab === 'tickets' || activeTab === 'wo_management')) ||
+                        (item.id === 'installer_portal' && (activeTab === 'installer_portal' || activeTab === 'installer_tasks' || activeTab === 'installer_progress' || activeTab === 'installer_history')) ||
+                        (item.id === 'contractor_recap' && (activeTab === 'contractor_recap' || activeTab === 'rekap_laporan')) ||
                         (item.id === 'setup' &&
-                          ['setup', 'users', 'management_role', 'setting_droplist', 'ui_builder', 'database_management', 'database_sync', 'sheets_sync', 'workflows'].includes(
-                            activeTab
-                          ));
+                          ['setup', 'ui_builder', 'workflows', 'database_sync', 'sheets_sync'].includes(activeTab));
 
                       return (
                         <button
                           key={item.id}
                           type="button"
                           onClick={() => handleItemClick(item.id)}
-                          title={isMinimized ? `${group.title} > ${item.label}` : undefined}
                           className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
                             isActive
                               ? 'bg-gradient-to-r from-[#5B35B1] to-[#7135B5] text-white font-bold shadow-md shadow-[#5B35B1]/40 border border-[#D8B4FE]/30'
                               : item.highlight
                               ? 'text-[#E9D5FF] bg-[#35105E]/80 hover:bg-[#5B35B1]/50'
                               : 'text-purple-200 hover:text-white hover:bg-[#35105E]/50'
-                          } ${isMinimized ? 'justify-center p-2.5' : ''}`}
+                          }`}
                         >
                           <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-[#D8B4FE]' : 'text-purple-300'}`} />
-
-                          {!isMinimized && (
-                            <div className="flex-1 flex items-center justify-between text-left truncate">
-                              <span className="truncate">{item.label}</span>
-                              {item.badge !== undefined && (
-                                <span
-                                  className={`ml-2 px-1.5 py-0.2 text-[9.5px] font-bold rounded-full ${
-                                    isActive
-                                      ? 'bg-white text-[#35105E]'
-                                      : item.badgeColor === 'amber'
-                                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                                      : item.badgeColor === 'emerald'
-                                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                                      : 'bg-[#5B35B1] text-purple-100'
-                                  }`}
-                                >
-                                  {item.badge}
-                                </span>
-                              )}
-                            </div>
-                          )}
+                          <div className="flex-1 flex items-center justify-between text-left truncate">
+                            <span className="truncate">{item.label}</span>
+                            {item.badge !== undefined && (
+                              <span
+                                className={`ml-2 px-1.5 py-0.2 text-[9.5px] font-bold rounded-full ${
+                                  isActive
+                                    ? 'bg-white text-[#35105E]'
+                                    : item.badgeColor === 'amber'
+                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                    : item.badgeColor === 'emerald'
+                                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                    : 'bg-[#5B35B1] text-purple-100'
+                                }`}
+                              >
+                                {item.badge}
+                              </span>
+                            )}
+                          </div>
                         </button>
                       );
                     })}
@@ -446,59 +586,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
           })}
         </div>
 
-        {/* Footer info & Logout */}
-        <div className="p-2.5 border-t border-[#35105E] bg-[#100921] space-y-2">
-          {!isMinimized ? (
-            <div className="flex items-center justify-between px-2 text-[11px] text-purple-300">
-              <span className="truncate">
-                Role: <strong className="text-white capitalize">{userRole.replace('_', ' ')}</strong>
-              </span>
-              <button
-                type="button"
-                onClick={() => onChangeState('minimized')}
-                className="p-1 text-purple-400 hover:text-white hover:bg-[#35105E] rounded transition-colors"
-                title="Minimize Menu"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          ) : (
-            <div className="flex justify-center">
-              <button
-                type="button"
-                onClick={() => onChangeState('expanded')}
-                className="p-1.5 text-purple-400 hover:text-white hover:bg-[#35105E] rounded transition-colors"
-                title="Expand Menu"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          )}
+        {/* Footer: Role Information & Logout */}
+        <div className="p-3 border-t border-[#35105E] bg-[#100921] space-y-2 shrink-0">
+          <div className="flex items-center justify-between px-2 text-[11px] text-purple-300">
+            <span className="truncate">
+              Role: <strong className="text-white capitalize">{userRole.replace('_', ' ')}</strong>
+            </span>
+            <span className="px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-[#35105E] text-[#D8B4FE] border border-[#7135B5]/40 capitalize">
+              {roleDisplayMode}
+            </span>
+          </div>
 
           {userRole === 'super_admin' && (
             <button
               type="button"
               onClick={() => setIsSessionModalOpen(true)}
-              className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-purple-200 hover:text-white hover:bg-[#35105E] text-xs font-semibold transition-colors cursor-pointer ${
-                isMinimized ? 'justify-center' : ''
-              }`}
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-purple-200 hover:text-white hover:bg-[#35105E] text-xs font-semibold transition-colors cursor-pointer"
               title="Kelola Sesi Staf Aktif"
             >
               <KeyRound className="w-3.5 h-3.5 shrink-0 text-[#D8B4FE]" />
-              {!isMinimized && <span className="truncate">Sesi Staf Aktif</span>}
+              <span className="truncate">Sesi Staf Aktif</span>
             </button>
           )}
 
           <button
             type="button"
             onClick={logout}
-            className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-rose-400 hover:text-rose-200 hover:bg-rose-950/40 text-xs font-semibold transition-colors cursor-pointer ${
-              isMinimized ? 'justify-center' : ''
-            }`}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-rose-400 hover:text-rose-200 hover:bg-rose-950/40 text-xs font-semibold transition-colors cursor-pointer"
             title="Keluar / Logout"
           >
             <LogOut className="w-3.5 h-3.5 shrink-0" />
-            {!isMinimized && <span>Keluar / Logout</span>}
+            <span>Keluar / Logout</span>
           </button>
         </div>
       </aside>

@@ -576,6 +576,25 @@ export interface UIConfiguration {
       multiColumnDetail: boolean;
     };
   };
+
+  // Menu Navigation Mode Configuration
+  navigationSettings?: NavigationSettings;
+}
+
+export type NavigationDisplayMode = 'accordion' | 'static';
+
+export interface NavigationSettings {
+  defaultMode: NavigationDisplayMode;
+  roleModes: {
+    super_admin: NavigationDisplayMode;
+    dispatch: NavigationDisplayMode;
+    leader: NavigationDisplayMode;
+    installer: NavigationDisplayMode;
+    management_data?: NavigationDisplayMode;
+    it_support?: NavigationDisplayMode;
+  };
+  categoryModes: Record<string, NavigationDisplayMode>;
+  allowMultipleOpenGroups: boolean;
 }
 
 export interface CanonicalFieldConfig {

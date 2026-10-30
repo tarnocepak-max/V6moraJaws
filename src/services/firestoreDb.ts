@@ -499,13 +499,14 @@ export async function saveUIConfigurationToFirestore(payload: {
     });
     await setDoc(docRef, dataToSave, { merge: true });
 
-    // Also mirror to global for backwards compatibility
+    // Also mirror to global for backwards compatibility & root-level navigationSettings access
     try {
       const globalDoc = doc(db, COLLECTIONS.APP_SETTINGS, 'global');
       await setDoc(globalDoc, {
         uiConfig: payload.config,
         navigationItems: payload.navigationItems,
         menuCategories: payload.menuCategories,
+        navigationSettings: payload.config?.navigationSettings || null,
         updatedAt,
         updatedBy: payload.updatedBy || 'Super Admin'
       }, { merge: true });
@@ -524,7 +525,8 @@ export async function loadUIConfigurationFromFirestore(): Promise<CloudUIConfigu
     const docRef = doc(db, COLLECTIONS.APP_SETTINGS, 'ui_configuration');
     const snap = await getDoc(docRef);
     if (snap.exists()) {
-      return snap.data() as CloudUIConfigurationPayload;
+      const data = snap.data() as CloudUIConfigurationPayload;
+      return data;
     }
     // Fallback to global
     const globalRef = doc(db, COLLECTIONS.APP_SETTINGS, 'global');
@@ -532,8 +534,12 @@ export async function loadUIConfigurationFromFirestore(): Promise<CloudUIConfigu
     if (gSnap.exists()) {
       const gData = gSnap.data();
       if (gData.uiConfig || gData.navigationItems) {
+        const loadedConfig = gData.uiConfig || {};
+        if (gData.navigationSettings && !loadedConfig.navigationSettings) {
+          loadedConfig.navigationSettings = gData.navigationSettings;
+        }
         return {
-          config: gData.uiConfig,
+          config: loadedConfig,
           navigationItems: gData.navigationItems,
           menuCategories: gData.menuCategories || [],
           updatedAt: gData.updatedAt || new Date().toISOString(),
@@ -559,11 +565,22 @@ export function subscribeToUIConfiguration(callback: (data: CloudUIConfiguration
   });
 }
 
-export async function deleteTicketFromFirestore(ticketId: string): Promise<void> {
+export async function deleteTicketFromFirestore(ticketId: string, woNumber?: string): Promise<void> {
   const path = `${COLLECTIONS.TICKETS}/${ticketId}`;
   try {
     const docRef = doc(db, COLLECTIONS.TICKETS, ticketId);
     await deleteDoc(docRef);
+
+    // Also remove by deterministic ID if different to prevent any resurrection
+    if (woNumber) {
+      const detId = getDeterministicTicketId(woNumber);
+      if (detId !== ticketId) {
+        try {
+          const detRef = doc(db, COLLECTIONS.TICKETS, detId);
+          await deleteDoc(detRef);
+        } catch {}
+      }
+    }
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, path);
   }

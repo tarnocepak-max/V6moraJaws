@@ -84,7 +84,7 @@ export const ContractorAreaRecapView: React.FC = () => {
       }
 
       // 3. Contractor Filter
-      const ticketContractor = (t.contractor || t.vendorName || '').trim() || 'Belum Ditentukan';
+      const ticketContractor = (t.contactorName || t.contractorName || (t as any).contractor || (t as any).vendorName || '').trim() || 'Belum Ditentukan';
       if (selectedContractor !== 'ALL' && ticketContractor.toLowerCase() !== selectedContractor.toLowerCase()) {
         return false;
       }
@@ -142,7 +142,7 @@ export const ContractorAreaRecapView: React.FC = () => {
       processedTicketIds.add(t.id);
 
       const areaKey = (t.area || '').trim() || 'Belum Ditentukan';
-      const contractorKey = (t.contractor || t.vendorName || '').trim() || 'Belum Ditentukan';
+      const contractorKey = (t.contactorName || t.contractorName || (t as any).contractor || (t as any).vendorName || '').trim() || 'Belum Ditentukan';
 
       if (!areaMap.has(areaKey)) {
         areaMap.set(areaKey, new Map<string, ContractorRowData>());
@@ -254,7 +254,7 @@ export const ContractorAreaRecapView: React.FC = () => {
   const availableContractors = useMemo(() => {
     const set = new Set<string>();
     activeTickets.forEach(t => {
-      const c = (t.contractor || t.vendorName || '').trim();
+      const c = (t.contactorName || t.contractorName || (t as any).contractor || (t as any).vendorName || '').trim();
       if (c) set.add(c);
     });
     contractorsList.forEach(c => set.add(c));

@@ -19,12 +19,16 @@ import { ReportDataWOView } from './components/reports/ReportDataWOView';
 import { ScheduleCalendarView } from './components/schedule/ScheduleCalendarView';
 import { LoginLogView } from './components/audit/LoginLogView';
 import { SettingDroplistView } from './components/settings/SettingDroplistView';
+import { SoundSettingsView } from './components/settings/SoundSettingsView';
 
 import { LeaderPortal } from './components/portals/LeaderPortal';
+import { LeaderProgressDashboardView } from './components/portals/LeaderProgressDashboardView';
+import { ContractorAreaRecapView } from './components/reports/ContractorAreaRecapView';
 import { LocationBasecampView } from './components/contractors/LocationBasecampView';
 import { InstallerPortal } from './components/portals/InstallerPortal';
 import { ContactCentreView } from './components/contact/ContactCentreView';
 import { ManagementDataPortal } from './components/portals/ManagementDataPortal';
+import { NavigationConfigView } from './components/setup/NavigationConfigView';
 
 import { DatabaseSyncMonitoringView } from './components/database/DatabaseSyncMonitoringView';
 import { DatabaseManagementView } from './components/database/DatabaseManagementView';
@@ -135,22 +139,63 @@ const MainLayout: React.FC = () => {
       case 'setting_droplist':
         return <SettingDroplistView />;
 
-      // Leader & Contractor Basecamp
+      // Leader & Contractor Basecamp (WO CONTRACTOR)
       case 'leader_portal':
         return (
           <LeaderPortal
             onSelectTicket={handleOpenTicketDetail}
             onOpenWhatsApp={handleOpenWhatsAppModal}
-            activeLeaderTab={leaderSubTab}
-            onLeaderTabChange={tab => setLeaderSubTab(tab)}
+            activeLeaderTab="dashboard"
+            onLeaderTabChange={tab => setLeaderSubTab(tab as any)}
           />
         );
+      case 'wo_assignment':
+        return (
+          <LeaderPortal
+            onSelectTicket={handleOpenTicketDetail}
+            onOpenWhatsApp={handleOpenWhatsAppModal}
+            activeLeaderTab="wo_assignment"
+            onLeaderTabChange={tab => setLeaderSubTab(tab as any)}
+          />
+        );
+      case 'progress_dashboard':
+        return (
+          <LeaderProgressDashboardView
+            onSelectTicket={handleOpenTicketDetail}
+            onOpenWhatsApp={handleOpenWhatsAppModal}
+          />
+        );
+      case 'installer_mgmt':
+        return (
+          <LeaderPortal
+            onSelectTicket={handleOpenTicketDetail}
+            onOpenWhatsApp={handleOpenWhatsAppModal}
+            activeLeaderTab="installer_mgmt"
+            onLeaderTabChange={tab => setLeaderSubTab(tab as any)}
+          />
+        );
+      case 'quota_settings':
+        return (
+          <LeaderPortal
+            onSelectTicket={handleOpenTicketDetail}
+            onOpenWhatsApp={handleOpenWhatsAppModal}
+            activeLeaderTab="quota_settings"
+            onLeaderTabChange={tab => setLeaderSubTab(tab as any)}
+          />
+        );
+      case 'contractor_recap':
+      case 'rekap_laporan':
+      case 'report_installer':
+        return <ContractorAreaRecapView />;
       case 'location_basecamp':
       case 'contractors':
         return <LocationBasecampView />;
 
-      // Technician Portal
+      // Technician Portal (TASK INSTALLER)
       case 'installer_portal':
+      case 'installer_tasks':
+      case 'installer_progress':
+      case 'installer_history':
         return (
           <InstallerPortal
             onSelectTicket={handleOpenTicketDetail}
@@ -226,6 +271,15 @@ const MainLayout: React.FC = () => {
 
       case 'setup':
         return <SetupHubView onNavigateTab={tab => setActiveTab(tab)} />;
+
+      case 'nav_config':
+        return <NavigationConfigView />;
+      case 'sound_settings':
+        return <SoundSettingsView />;
+      case 'setting_droplist_status':
+      case 'setting_droplist_reason':
+      case 'setting_droplist_rootcause':
+        return <SettingDroplistView />;
 
       default:
         return <DashboardOverview onNavigate={tab => setActiveTab(tab)} />;

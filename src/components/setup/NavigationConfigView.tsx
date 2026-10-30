@@ -19,7 +19,10 @@ import {
   CheckCircle2,
   AlertTriangle,
   FolderTree,
-  Tag
+  Tag,
+  ChevronDown,
+  SlidersHorizontal,
+  Sliders
 } from 'lucide-react';
 
 export const NavigationConfigView: React.FC = () => {
@@ -35,7 +38,12 @@ export const NavigationConfigView: React.FC = () => {
     saveConfigToFirestore,
     isCloudSyncing,
     lastCloudSyncTime,
-    cloudSyncStatus
+    cloudSyncStatus,
+    navigationSettings,
+    setRoleNavigationMode,
+    setCategoryNavigationMode,
+    updateNavigationSettings,
+    resetNavigationSettings
   } = useUIConfig();
   const { toast } = useToast();
 
@@ -100,12 +108,12 @@ export const NavigationConfigView: React.FC = () => {
     try {
       const res = await saveConfigToFirestore(currentUser.name || 'Superadmin');
       if (res.success) {
-        addAuditLog({
-          action: 'UPDATE_NAVIGATION_CONFIG',
-          details: `Menyimpan struktur navigasi menu (${menuCategories.length} kategori, ${navigationItems.length} submenu) ke Cloud Firestore`,
-          targetId: 'ui_configuration',
-          status: 'success'
-        });
+        addAuditLog(
+          'UPDATE_NAVIGATION_CONFIG',
+          'ui_config',
+          'ui_configuration',
+          `Menyimpan struktur navigasi menu (${menuCategories.length} kategori, ${navigationItems.length} submenu) ke Cloud Firestore`
+        );
         toast.success('Konfigurasi nama dan posisi menu berhasil disimpan ke Firebase Cloud Firestore secara global!', 'Tersimpan ke Cloud');
       } else {
         toast.error(`Gagal menyimpan: ${res.error}`, 'Error Simpan');
@@ -125,12 +133,12 @@ export const NavigationConfigView: React.FC = () => {
 
     try {
       await saveConfigToFirestore(currentUser.name || 'Superadmin');
-      addAuditLog({
-        action: 'RESTORE_DEFAULT_NAVIGATION',
-        details: 'Memulihkan seluruh nama dan urutan menu navigasi ke pengaturan awal sistem',
-        targetId: 'ui_configuration',
-        status: 'success'
-      });
+      addAuditLog(
+        'RESTORE_DEFAULT_NAVIGATION',
+        'ui_config',
+        'ui_configuration',
+        'Memulihkan seluruh nama dan urutan menu navigasi ke pengaturan awal sistem'
+      );
       toast.success('Seluruh susunan menu telah dipulihkan ke pengaturan default!', 'Default Dipulihkan');
     } catch {
       toast.info('Susunan menu lokal telah dipulihkan ke default.');
@@ -215,6 +223,193 @@ export const NavigationConfigView: React.FC = () => {
               ? `Tersinkronisasi Cloud ${lastCloudSyncTime ? `(${new Date(lastCloudSyncTime).toLocaleTimeString('id-ID')})` : ''}`
               : 'Penyimpanan Lokal Aktif'}
           </span>
+        </div>
+      </div>
+
+      {/* ============================================================ */}
+      {/* PENGATURAN MODE NAVIGASI MENU (MENU DISPLAY MODE)            */}
+      {/* ============================================================ */}
+      <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 p-5 shadow-xs space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200 dark:border-purple-900/40">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#5B35B1]/10 text-[#5B35B1] dark:text-purple-300 flex items-center justify-center font-bold">
+              <SlidersHorizontal className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="font-bold text-base text-[#21183A] dark:text-white flex items-center gap-2">
+                <span>PENGATURAN MODE NAVIGASI MENU</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#E9E1FF] dark:bg-purple-900/60 text-[#3B1D78] dark:text-purple-200">
+                  Display Mode
+                </span>
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Tentukan apakah menu navigasi menggunakan model <strong>Accordion Submenu Collapse</strong> (buka/tutup dengan panah) atau <strong>Static Navigation</strong> (menu biasa, seluruh submenu langsung terlihat).
+              </p>
+            </div>
+          </div>
+
+          {isSuperadmin && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  resetNavigationSettings();
+                  toast.info('Pengaturan mode navigasi dikembalikan ke default.', 'Mode Direset');
+                }}
+                className="px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 rounded-xl transition-all cursor-pointer"
+              >
+                Reset Default Mode
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* 1. Pengaturan Mode Berdasarkan Role Pengguna */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-xs uppercase tracking-wider text-[#5B35B1] dark:text-purple-300 flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4" />
+              <span>1. Mode Navigasi Berdasarkan Role Pengguna</span>
+            </h3>
+            <span className="text-[11px] text-slate-400">
+              Konfigurasi tampilan sidebar untuk masing-masing hak akses
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {[
+              { role: 'super_admin', label: 'Superadmin', defaultMode: 'accordion' },
+              { role: 'dispatch', label: 'Dispatch', defaultMode: 'accordion' },
+              { role: 'leader', label: 'Leader', defaultMode: 'static' },
+              { role: 'installer', label: 'Installer / Teknisi', defaultMode: 'static' }
+            ].map(item => {
+              const currentMode = navigationSettings?.roleModes?.[item.role as keyof typeof navigationSettings.roleModes] || item.defaultMode;
+              return (
+                <div
+                  key={item.role}
+                  className="p-3.5 bg-[#F5F1FF] dark:bg-[#251545] rounded-xl border border-[#D8CCF3] dark:border-purple-800/60 flex flex-col justify-between space-y-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs text-[#21183A] dark:text-white">
+                      {item.label}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                      currentMode === 'accordion'
+                        ? 'bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300'
+                        : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
+                    }`}>
+                      {currentMode === 'accordion' ? 'Accordion' : 'Static Menu'}
+                    </span>
+                  </div>
+
+                  {/* Mode Selector Buttons */}
+                  <div className="grid grid-cols-2 gap-1.5 bg-white dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-slate-800">
+                    <button
+                      type="button"
+                      disabled={!isSuperadmin}
+                      onClick={() => setRoleNavigationMode(item.role as any, 'accordion')}
+                      className={`py-1.5 px-2 rounded-md text-[11px] font-bold transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1 ${
+                        currentMode === 'accordion'
+                          ? 'bg-[#5B35B1] text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                      }`}
+                    >
+                      <ChevronDown className="w-3 h-3" />
+                      <span>Accordion</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!isSuperadmin}
+                      onClick={() => setRoleNavigationMode(item.role as any, 'static')}
+                      className={`py-1.5 px-2 rounded-md text-[11px] font-bold transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1 ${
+                        currentMode === 'static'
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                      }`}
+                    >
+                      <Layers className="w-3 h-3" />
+                      <span>Static</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 2. Pengaturan Mode Override per Kategori Menu */}
+        <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-purple-900/40">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-xs uppercase tracking-wider text-[#5B35B1] dark:text-purple-300 flex items-center gap-1.5">
+              <FolderTree className="w-4 h-4" />
+              <span>2. Pengaturan Khusus per Kategori Menu (Override)</span>
+            </h3>
+            <span className="text-[11px] text-slate-400">
+              Opsional: Kategori dapat dipaksa selalu Accordion atau selalu Static
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+            {menuCategories.map(cat => {
+              const catMode: string = ((navigationSettings?.categoryModes || {}) as any)[cat] || 'default';
+              return (
+                <div
+                  key={cat}
+                  className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-purple-900/40 space-y-2"
+                >
+                  <div className="flex items-center justify-between font-bold text-slate-800 dark:text-slate-200">
+                    <span className="truncate">{cat}</span>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      {catMode === 'default' ? 'Ikuti Role' : catMode}
+                    </span>
+                  </div>
+
+                  <select
+                    disabled={!isSuperadmin}
+                    value={catMode}
+                    onChange={e => {
+                      const val = e.target.value;
+                      if (val === 'default') {
+                        const updated = { ...(navigationSettings?.categoryModes || {}) };
+                        delete updated[cat];
+                        updateNavigationSettings({ categoryModes: updated });
+                      } else {
+                        setCategoryNavigationMode(cat, val as 'accordion' | 'static');
+                      }
+                    }}
+                    className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs"
+                  >
+                    <option value="default">Ikuti Pengaturan Role</option>
+                    <option value="accordion">Paksa Accordion (Collapse/Expand)</option>
+                    <option value="static">Paksa Static (Semua Terlihat)</option>
+                  </select>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 3. Pengaturan Tambahan: Izinkan beberapa kategori terbuka bersamaan */}
+        <div className="pt-2 border-t border-slate-100 dark:border-purple-900/40 flex items-center justify-between text-xs">
+          <div>
+            <span className="font-bold text-slate-800 dark:text-slate-200 block">
+              Multi-Open Accordion: Izinkan beberapa kategori terbuka bersamaan
+            </span>
+            <span className="text-[11px] text-slate-500">
+              Jika aktif: membuka satu kategori tidak otomatis menutup kategori lainnya.
+            </span>
+          </div>
+
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              disabled={!isSuperadmin}
+              checked={navigationSettings?.allowMultipleOpenGroups !== false}
+              onChange={e => updateNavigationSettings({ allowMultipleOpenGroups: e.target.checked })}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-hidden rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#5B35B1]"></div>
+          </label>
         </div>
       </div>
 

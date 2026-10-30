@@ -72,8 +72,8 @@ import { ContractorAreaRecapView } from '../reports/ContractorAreaRecapView';
 interface LeaderPortalProps {
   onSelectTicket: (ticket: Ticket) => void;
   onOpenWhatsApp?: (ticket: Ticket) => void;
-  activeLeaderTab?: 'wo_assignment' | 'progress_dashboard' | 'installer_mgmt' | 'quota_settings' | 'contractor_recap';
-  onLeaderTabChange?: (tab: 'wo_assignment' | 'progress_dashboard' | 'installer_mgmt' | 'quota_settings' | 'contractor_recap') => void;
+  activeLeaderTab?: 'dashboard' | 'wo_assignment' | 'progress_dashboard' | 'installer_mgmt' | 'quota_settings' | 'contractor_recap';
+  onLeaderTabChange?: (tab: 'dashboard' | 'wo_assignment' | 'progress_dashboard' | 'installer_mgmt' | 'quota_settings' | 'contractor_recap') => void;
 }
 
 interface QuotaSettings {
@@ -120,10 +120,10 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     areasList
   } = useApp();
 
-  // Navigation tab in portal: Dedicated tabs for Assign WO, Pendaftaran Akun Teknisi, Dashboard Progress WO, Quota, and Rekap Area
-  const [internalTab, setInternalTab] = useState<'wo_assignment' | 'installer_mgmt' | 'progress_dashboard' | 'quota_settings' | 'contractor_recap'>('wo_assignment');
+  // Navigation tab in portal: Dedicated tabs for Dashboard Leader, Assign WO, Pendaftaran Akun Teknisi, Dashboard Progress WO, Quota, and Rekap Area
+  const [internalTab, setInternalTab] = useState<'dashboard' | 'wo_assignment' | 'installer_mgmt' | 'progress_dashboard' | 'quota_settings' | 'contractor_recap'>('dashboard');
   const activeTab = activeLeaderTab || internalTab;
-  const setActiveTab = (tab: 'wo_assignment' | 'installer_mgmt' | 'progress_dashboard' | 'quota_settings' | 'contractor_recap') => {
+  const setActiveTab = (tab: 'dashboard' | 'wo_assignment' | 'installer_mgmt' | 'progress_dashboard' | 'quota_settings' | 'contractor_recap') => {
     setInternalTab(tab);
     if (onLeaderTabChange) onLeaderTabChange(tab);
   };
@@ -223,10 +223,10 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
   
   // Date Range Filter for Assign WO (Strict Asia/Jakarta Appointment Date - Requirement 6)
   const todayWIB = getJakartaDateString(0);
-  const [assignStartDate, setAssignStartDate] = useState<string>(todayWIB);
-  const [assignEndDate, setAssignEndDate] = useState<string>(todayWIB);
-  const [appliedStartDate, setAppliedStartDate] = useState<string>(todayWIB);
-  const [appliedEndDate, setAppliedEndDate] = useState<string>(todayWIB);
+  const tmrWIB = getJakartaDateString(1);
+  const [dateFilterType, setDateFilterType] = useState<'all' | 'today' | 'tomorrow' | 'custom'>('all');
+  const [customDateStart, setCustomDateStart] = useState<string>(todayWIB);
+  const [customDateEnd, setCustomDateEnd] = useState<string>(todayWIB);
 
   // Pagination & Rows per page
   const [rowsPerPage, setRowsPerPage] = useState<number>(25);
@@ -924,85 +924,354 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       )}
 
       {/* ============================================================ */}
-      {/* TABS NAVIGATION UTAMA PORTAL LEADER                          */}
-      {/* 1. Assign WO                                                */}
-      {/* 2. Pendaftaran Akun Teknisi                                  */}
-      {/* 3. Dashboard Progress WO                                     */}
-      {/* 4. Pengaturan Kuota & Kolom                                  */}
+      {/* DASHBOARD LEADER VIEW (BAGIAN 3.2: 10 KPI, SLA, BEBAN TEKNISI)*/}
       {/* ============================================================ */}
-      <div className="flex flex-wrap items-center gap-2 border-b-2 border-[#D8CCF3] dark:border-purple-900/60 pb-1 text-xs font-semibold">
-        {/* TAB 1: ASSIGN WO */}
-        {/* TAB 1: ASSIGN WO */}
-        <button
-          type="button"
-          onClick={() => setActiveTab('wo_assignment')}
-          className={`px-4 py-2.5 rounded-t-xl border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
-            activeTab === 'wo_assignment'
-              ? 'border-[#5B35B1] bg-[#F5F1FF] dark:bg-[#251545] text-[#3B1D78] dark:text-purple-300 font-bold shadow-xs'
-              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-[#5B35B1] hover:bg-[#F5F1FF]/60 dark:hover:bg-purple-950/40'
-          }`}
-        >
-          <UserCheck className="w-4 h-4 text-[#5B35B1] dark:text-purple-300" />
-          <span>ASSIGN WO</span>
-          {summaryMetrics.unassigned > 0 ? (
-            <span className="px-2 py-0.5 rounded-full text-[10.5px] bg-amber-500 text-white font-mono font-bold animate-pulse">
-              {summaryMetrics.unassigned} Belum Di-assign
-            </span>
-          ) : (
-            <span className="px-1.5 py-0.5 rounded-full text-[10.5px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-mono">
-              Semua Ditugaskan
-            </span>
-          )}
-        </button>
+      {activeTab === 'dashboard' && (
+        <div className="space-y-5">
+          {/* 10 ACCURATE SUMMARY METRIC CARDS */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+            {/* 1. Total WO */}
+            <div className="bg-white dark:bg-[#1A0E2E] p-4 rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 shadow-xs flex flex-col justify-between">
+              <div className="flex items-center justify-between text-slate-500 dark:text-purple-300">
+                <span className="text-xs font-semibold">Total WO Masuk</span>
+                <Layers className="w-4 h-4 text-[#5B35B1]" />
+              </div>
+              <div className="mt-2 flex items-baseline justify-between">
+                <span className="text-2xl font-black font-mono text-[#21183A] dark:text-white">
+                  {summaryMetrics.total}
+                </span>
+                <span className="text-[10px] text-slate-400">Total WO</span>
+              </div>
+            </div>
 
-        {/* TAB 2: DASHBOARD PROGRESS WO */}
-        <button
-          type="button"
-          onClick={() => setActiveTab('progress_dashboard')}
-          className={`px-4 py-2.5 rounded-t-xl border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
-            activeTab === 'progress_dashboard'
-              ? 'border-[#5B35B1] bg-[#F5F1FF] dark:bg-[#251545] text-[#3B1D78] dark:text-purple-300 font-bold shadow-xs'
-              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-[#5B35B1] hover:bg-[#F5F1FF]/60 dark:hover:bg-purple-950/40'
-          }`}
-        >
-          <BarChart3 className="w-4 h-4 text-[#5B35B1] dark:text-purple-300" />
-          <span>DASHBOARD PROGRESS WO</span>
-          <span className="px-2 py-0.5 rounded-full text-[10.5px] bg-[#E9E1FF] dark:bg-purple-900/60 text-[#3B1D78] dark:text-purple-200 font-mono font-bold">
-            Live SLA
-          </span>
-        </button>
+            {/* 2. Belum Di-assign (HIGHLIGHT) */}
+            <div
+              onClick={() => setActiveTab('wo_assignment')}
+              className={`p-4 rounded-2xl border-2 shadow-xs flex flex-col justify-between cursor-pointer transition-transform hover:scale-[1.02] ${
+                summaryMetrics.unassigned > 0
+                  ? 'bg-amber-500/10 border-amber-500/60 text-amber-900 dark:text-amber-200 animate-pulse'
+                  : 'bg-white dark:bg-[#1A0E2E] border-[#D8CCF3] dark:border-purple-900/60'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-amber-600 dark:text-amber-400">Belum Di-assign</span>
+                <AlertTriangle className="w-4 h-4 text-amber-500" />
+              </div>
+              <div className="mt-2 flex items-baseline justify-between">
+                <span className="text-2xl font-black font-mono text-amber-600 dark:text-amber-300">
+                  {summaryMetrics.unassigned}
+                </span>
+                <span className="text-[10px] font-bold text-amber-600 underline">Tugaskan Sekarang →</span>
+              </div>
+            </div>
 
-        {/* TAB 3: PENDAFTARAN AKUN TEKNISI */}
-        <button
-          type="button"
-          onClick={() => setActiveTab('installer_mgmt')}
-          className={`px-4 py-2.5 rounded-t-xl border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
-            activeTab === 'installer_mgmt'
-              ? 'border-emerald-600 bg-emerald-50/80 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold shadow-xs'
-              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-emerald-700 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/30'
-          }`}
-        >
-          <UserPlus className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-          <span>PENDAFTARAN AKUN TEKNISI</span>
-          <span className="px-2 py-0.5 rounded-full text-[10.5px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-mono font-bold">
-            {myInstallers.length} Teknisi
-          </span>
-        </button>
+            {/* 3. Sudah Di-assign */}
+            <div className="bg-white dark:bg-[#1A0E2E] p-4 rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 shadow-xs flex flex-col justify-between">
+              <div className="flex items-center justify-between text-slate-500 dark:text-purple-300">
+                <span className="text-xs font-semibold">Sudah Di-assign</span>
+                <UserCheck className="w-4 h-4 text-indigo-500" />
+              </div>
+              <div className="mt-2 flex items-baseline justify-between">
+                <span className="text-2xl font-black font-mono text-indigo-600 dark:text-indigo-300">
+                  {summaryMetrics.assigned}
+                </span>
+                <span className="text-[10px] text-slate-400">
+                  {summaryMetrics.total > 0 ? Math.round((summaryMetrics.assigned / summaryMetrics.total) * 100) : 0}%
+                </span>
+              </div>
+            </div>
 
-        {/* TAB 4: PENGATURAN KUOTA & KOLOM VISIBILITAS */}
-        <button
-          type="button"
-          onClick={() => setActiveTab('quota_settings')}
-          className={`px-4 py-2.5 rounded-t-xl border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
-            activeTab === 'quota_settings'
-              ? 'border-purple-600 bg-purple-50/80 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 font-bold shadow-xs'
-              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-purple-700 hover:bg-purple-50/40'
-          }`}
-        >
-          <Sliders className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-          <span>PENGATURAN KUOTA & KOLOM VISIBILITAS</span>
-        </button>
-      </div>
+            {/* 4. Menunggu Pengerjaan */}
+            <div className="bg-white dark:bg-[#1A0E2E] p-4 rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 shadow-xs flex flex-col justify-between">
+              <div className="flex items-center justify-between text-slate-500 dark:text-purple-300">
+                <span className="text-xs font-semibold">Menunggu</span>
+                <Clock className="w-4 h-4 text-slate-500" />
+              </div>
+              <div className="mt-2 flex items-baseline justify-between">
+                <span className="text-2xl font-black font-mono text-slate-700 dark:text-slate-300">
+                  {summaryMetrics.waiting}
+                </span>
+                <span className="text-[10px] text-slate-400">Antrean</span>
+              </div>
+            </div>
+
+            {/* 5. Sedang Dikerjakan */}
+            <div className="bg-white dark:bg-[#1A0E2E] p-4 rounded-2xl border-2 border-blue-300 dark:border-blue-900/60 shadow-xs flex flex-col justify-between">
+              <div className="flex items-center justify-between text-blue-600 dark:text-blue-400">
+                <span className="text-xs font-semibold">Sedang Dikerjakan</span>
+                <Activity className="w-4 h-4 text-blue-500" />
+              </div>
+              <div className="mt-2 flex items-baseline justify-between">
+                <span className="text-2xl font-black font-mono text-blue-600 dark:text-blue-300">
+                  {summaryMetrics.inProgress}
+                </span>
+                <span className="text-[10px] text-blue-400">On Site / En Route</span>
+              </div>
+            </div>
+
+            {/* 6. Selesai (Completed) */}
+            <div className="bg-white dark:bg-[#1A0E2E] p-4 rounded-2xl border-2 border-emerald-300 dark:border-emerald-900/60 shadow-xs flex flex-col justify-between">
+              <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
+                <span className="text-xs font-semibold">Selesai (Completed)</span>
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              </div>
+              <div className="mt-2 flex items-baseline justify-between">
+                <span className="text-2xl font-black font-mono text-emerald-600 dark:text-emerald-300">
+                  {summaryMetrics.completed}
+                </span>
+                <span className="text-[10px] text-emerald-500 font-bold">
+                  {summaryMetrics.total > 0 ? Math.round((summaryMetrics.completed / summaryMetrics.total) * 100) : 0}% Rate
+                </span>
+              </div>
+            </div>
+
+            {/* 7. Tertunda / Pending */}
+            <div className="bg-white dark:bg-[#1A0E2E] p-4 rounded-2xl border-2 border-amber-300 dark:border-amber-900/60 shadow-xs flex flex-col justify-between">
+              <div className="flex items-center justify-between text-amber-600 dark:text-amber-400">
+                <span className="text-xs font-semibold">Tertunda / Reschedule</span>
+                <RotateCcw className="w-4 h-4 text-amber-500" />
+              </div>
+              <div className="mt-2 flex items-baseline justify-between">
+                <span className="text-2xl font-black font-mono text-amber-600 dark:text-amber-300">
+                  {summaryMetrics.pending}
+                </span>
+                <span className="text-[10px] text-amber-400">Pending</span>
+              </div>
+            </div>
+
+            {/* 8. Bermasalah / Batal */}
+            <div className="bg-white dark:bg-[#1A0E2E] p-4 rounded-2xl border-2 border-rose-300 dark:border-rose-900/60 shadow-xs flex flex-col justify-between">
+              <div className="flex items-center justify-between text-rose-600 dark:text-rose-400">
+                <span className="text-xs font-semibold">Bermasalah / Batal</span>
+                <XCircle className="w-4 h-4 text-rose-500" />
+              </div>
+              <div className="mt-2 flex items-baseline justify-between">
+                <span className="text-2xl font-black font-mono text-rose-600 dark:text-rose-300">
+                  {summaryMetrics.problem}
+                </span>
+                <span className="text-[10px] text-rose-400">Kendala</span>
+              </div>
+            </div>
+
+            {/* 9. Teknisi Aktif */}
+            <div className="bg-white dark:bg-[#1A0E2E] p-4 rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 shadow-xs flex flex-col justify-between">
+              <div className="flex items-center justify-between text-slate-500 dark:text-purple-300">
+                <span className="text-xs font-semibold">Teknisi Aktif</span>
+                <Users2 className="w-4 h-4 text-emerald-500" />
+              </div>
+              <div className="mt-2 flex items-baseline justify-between">
+                <span className="text-2xl font-black font-mono text-emerald-600 dark:text-emerald-300">
+                  {summaryMetrics.activeInstallers}
+                </span>
+                <span className="text-[10px] text-slate-400">Mengerjakan</span>
+              </div>
+            </div>
+
+            {/* 10. Teknisi Siaga / Idle */}
+            <div className="bg-white dark:bg-[#1A0E2E] p-4 rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 shadow-xs flex flex-col justify-between">
+              <div className="flex items-center justify-between text-slate-500 dark:text-purple-300">
+                <span className="text-xs font-semibold">Teknisi Siaga / Idle</span>
+                <UserPlus className="w-4 h-4 text-amber-500" />
+              </div>
+              <div className="mt-2 flex items-baseline justify-between">
+                <span className="text-2xl font-black font-mono text-amber-600 dark:text-amber-300">
+                  {summaryMetrics.idleInstallers}
+                </span>
+                <span className="text-[10px] text-slate-400">Siap Ditugaskan</span>
+              </div>
+            </div>
+          </div>
+
+          {/* SLA PROGRESS BAR & BREAKDOWN */}
+          <div className="bg-white dark:bg-[#1A0E2E] p-5 rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 shadow-xs space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="font-bold text-sm text-[#21183A] dark:text-white flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-[#5B35B1]" />
+                  <span>SLA & Progres Penyelesaian Work Order</span>
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Tingkat penyelesaian instalasi harian mitra kontraktor {displayContractor}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-2xl font-black font-mono text-[#5B35B1] dark:text-purple-300">
+                  {summaryMetrics.total > 0 ? Math.round((summaryMetrics.completed / summaryMetrics.total) * 100) : 0}%
+                </span>
+                <span className="text-xs text-slate-400">Terselesaikan</span>
+              </div>
+            </div>
+
+            {/* Multi-segment Progress Bar */}
+            <div className="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex shadow-inner">
+              <div
+                style={{ width: `${summaryMetrics.total > 0 ? (summaryMetrics.completed / summaryMetrics.total) * 100 : 0}%` }}
+                className="bg-emerald-500 transition-all duration-500"
+                title={`Selesai: ${summaryMetrics.completed}`}
+              />
+              <div
+                style={{ width: `${summaryMetrics.total > 0 ? (summaryMetrics.inProgress / summaryMetrics.total) * 100 : 0}%` }}
+                className="bg-blue-500 transition-all duration-500"
+                title={`Sedang Dikerjakan: ${summaryMetrics.inProgress}`}
+              />
+              <div
+                style={{ width: `${summaryMetrics.total > 0 ? (summaryMetrics.waiting / summaryMetrics.total) * 100 : 0}%` }}
+                className="bg-slate-400 transition-all duration-500"
+                title={`Menunggu: ${summaryMetrics.waiting}`}
+              />
+              <div
+                style={{ width: `${summaryMetrics.total > 0 ? (summaryMetrics.pending / summaryMetrics.total) * 100 : 0}%` }}
+                className="bg-amber-500 transition-all duration-500"
+                title={`Pending: ${summaryMetrics.pending}`}
+              />
+              <div
+                style={{ width: `${summaryMetrics.total > 0 ? (summaryMetrics.problem / summaryMetrics.total) * 100 : 0}%` }}
+                className="bg-rose-500 transition-all duration-500"
+                title={`Bermasalah: ${summaryMetrics.problem}`}
+              />
+            </div>
+
+            {/* Legend */}
+            <div className="flex flex-wrap items-center gap-4 text-xs pt-1">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                <span className="text-slate-600 dark:text-slate-300">Selesai ({summaryMetrics.completed})</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                <span className="text-slate-600 dark:text-slate-300">Sedang Dikerjakan ({summaryMetrics.inProgress})</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-slate-400" />
+                <span className="text-slate-600 dark:text-slate-300">Menunggu ({summaryMetrics.waiting})</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                <span className="text-slate-600 dark:text-slate-300">Pending ({summaryMetrics.pending})</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                <span className="text-slate-600 dark:text-slate-300">Bermasalah ({summaryMetrics.problem})</span>
+              </div>
+            </div>
+          </div>
+
+          {/* DAFTAR BEBAN KERJA TEKNISI */}
+          <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 shadow-xs p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+              <div>
+                <h3 className="font-bold text-sm text-[#21183A] dark:text-white flex items-center gap-2">
+                  <Users2 className="w-4 h-4 text-[#5B35B1]" />
+                  <span>Daftar Beban Kerja & Status Teknisi Mitra</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#E9E1FF] dark:bg-purple-900/60 text-[#3B1D78] dark:text-purple-200">
+                    {myInstallers.length} Teknisi Terdaftar
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Pemantauan real-time kapasitas pengerjaan dan kuota harian teknisi
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('wo_assignment')}
+                  className="px-3.5 py-1.5 text-xs font-bold text-white bg-[#5B35B1] hover:bg-[#3B1D78] rounded-xl shadow-xs transition-all cursor-pointer"
+                >
+                  Buka Menu Assign WO →
+                </button>
+              </div>
+            </div>
+
+            {/* Table of Installers */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-[#F5F1FF] dark:bg-[#251545] text-slate-700 dark:text-purple-200 uppercase font-semibold">
+                  <tr>
+                    <th className="py-2.5 px-3">Teknisi</th>
+                    <th className="py-2.5 px-3">Kontak WhatsApp</th>
+                    <th className="py-2.5 px-3 text-center">Status</th>
+                    <th className="py-2.5 px-3 text-center">WO Aktif</th>
+                    <th className="py-2.5 px-3 text-center">Beban / Kuota</th>
+                    <th className="py-2.5 px-3 text-center">Progres Selesai</th>
+                    <th className="py-2.5 px-3 text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {installerProgressRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-6 text-center text-slate-400">
+                        Belum ada teknisi yang terdaftar untuk kontraktor ini. Silakan tambahkan akun teknisi melalui menu Pendaftaran Akun Teknisi.
+                      </td>
+                    </tr>
+                  ) : (
+                    installerProgressRows.map(row => {
+                      const isActive = row.inProgress > 0 || row.notStarted > 0;
+                      return (
+                        <tr key={row.installer.id} className="hover:bg-slate-50 dark:hover:bg-purple-950/20 transition-colors">
+                          <td className="py-3 px-3 font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-950 text-purple-600 flex items-center justify-center font-bold text-xs shrink-0">
+                              {row.installer.name.slice(0, 2).toUpperCase()}
+                            </div>
+                            <div>
+                              <div>{row.installer.name}</div>
+                              <div className="text-[10px] text-slate-400 font-normal">@{row.installer.username}</div>
+                            </div>
+                          </td>
+                          <td className="py-3 px-3 font-mono text-slate-600 dark:text-slate-300">
+                            {row.installer.phone || '-'}
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            {isActive ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300">
+                                Aktif ({row.inProgress > 0 ? 'Sedang di Lokasi' : 'Siap Menuju'})
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300">
+                                Siaga (Idle)
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-3 text-center font-mono font-bold text-slate-800 dark:text-slate-200">
+                            {row.totalWO}
+                          </td>
+                          <td className="py-3 px-3 text-center font-mono">
+                            <span className={row.totalWO >= row.maxQuota ? 'text-rose-600 font-bold' : 'text-slate-700 dark:text-slate-300'}>
+                              {row.totalWO} / {row.maxQuota} WO
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              <div className="w-16 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                <div
+                                  style={{ width: `${row.progressPercent}%` }}
+                                  className="h-full bg-emerald-500 rounded-full"
+                                />
+                              </div>
+                              <span className="font-mono text-[11px] text-slate-600 dark:text-slate-300 font-semibold">
+                                {row.progressPercent}%
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedInstallerForDetail(row.installer)}
+                              className="px-2.5 py-1 text-xs font-semibold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950 hover:bg-purple-100 rounded-lg border border-purple-200 dark:border-purple-800 transition-colors cursor-pointer"
+                            >
+                              Lihat Detail
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ============================================================ */}
       {/* TAB 1: MENU KHUSUS ASSIGN WO                                 */}
@@ -1249,6 +1518,74 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                     <span className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 rounded-md font-bold font-mono">
                       {selectedTicketIds.length} Dipilih
                     </span>
+                  )}
+                </div>
+
+                {/* Date Filter Bar (Strict Asia/Jakarta WIB - BAGIAN 6) */}
+                <div className="flex flex-wrap items-center gap-1.5 p-1.5 bg-[#F5F1FF] dark:bg-[#251545] rounded-xl border border-[#D8CCF3] dark:border-purple-900/60 text-xs">
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => { setDateFilterType('all'); setCurrentPage(1); }}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                        dateFilterType === 'all'
+                          ? 'bg-[#5B35B1] text-white shadow-xs'
+                          : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      Semua Tanggal
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setDateFilterType('today'); setCurrentPage(1); }}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                        dateFilterType === 'today'
+                          ? 'bg-[#5B35B1] text-white shadow-xs'
+                          : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      Hari Ini
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setDateFilterType('tomorrow'); setCurrentPage(1); }}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                        dateFilterType === 'tomorrow'
+                          ? 'bg-[#5B35B1] text-white shadow-xs'
+                          : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      Besok
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setDateFilterType('custom'); setCurrentPage(1); }}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                        dateFilterType === 'custom'
+                          ? 'bg-[#5B35B1] text-white shadow-xs'
+                          : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      Rentang Tanggal
+                    </button>
+                  </div>
+
+                  {dateFilterType === 'custom' && (
+                    <div className="flex items-center gap-1 pl-1">
+                      <input
+                        type="date"
+                        value={customDateStart}
+                        onChange={e => { setCustomDateStart(e.target.value); setCurrentPage(1); }}
+                        className="px-2 py-0.5 bg-white dark:bg-slate-800 border rounded text-[11px] font-mono"
+                      />
+                      <span className="text-slate-400 text-[11px]">s/d</span>
+                      <input
+                        type="date"
+                        value={customDateEnd}
+                        onChange={e => { setCustomDateEnd(e.target.value); setCurrentPage(1); }}
+                        className="px-2 py-0.5 bg-white dark:bg-slate-800 border rounded text-[11px] font-mono"
+                      />
+                    </div>
                   )}
                 </div>
 
@@ -1896,13 +2233,178 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       )}
 
       {/* ============================================================ */}
-      {/* TAB 2: DASHBOARD PROGRESS WO (SCREENSHOT 1 & 3 DESIGN)        */}
+      {/* TAB 2: DASHBOARD PROGRESS WO                                 */}
       {/* ============================================================ */}
       {activeTab === 'progress_dashboard' && (
         <LeaderProgressDashboardView
           onSelectTicket={onSelectTicket}
           onOpenWhatsApp={onOpenWhatsApp}
         />
+      )}
+
+      {/* ============================================================ */}
+      {/* TAB 3: PENDAFTARAN AKUN TEKNISI (BAGIAN 3.1 & 3.2)           */}
+      {/* ============================================================ */}
+      {activeTab === 'installer_mgmt' && (
+        <div className="space-y-5">
+          <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 p-5 shadow-xs space-y-4">
+            <div className="flex items-center gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center font-bold shadow-xs">
+                <UserPlus className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-[#21183A] dark:text-white">
+                  Pendaftaran Akun Teknisi Mitra
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Daftarkan teknisi baru di bawah naungan kontraktor <strong>{displayContractor}</strong>.
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleAddInstaller} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Nama Lengkap Teknisi *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Contoh: Budi Santoso"
+                  value={instName}
+                  onChange={e => setInstName(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Username Login *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Contoh: budi_mjs"
+                  value={instUsername}
+                  onChange={e => setInstUsername(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  No. Telepon WhatsApp *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Contoh: 08123456789"
+                  value={instPhone}
+                  onChange={e => setInstPhone(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Email (Opsional)
+                </label>
+                <input
+                  type="email"
+                  placeholder="budi@mitra.com"
+                  value={instEmail}
+                  onChange={e => setInstEmail(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl"
+                />
+              </div>
+
+              <div className="sm:col-span-2 lg:col-span-4 flex items-center justify-between pt-2">
+                <span className="text-[11px] text-slate-400">
+                  Password awal default adalah <code className="font-mono font-bold text-purple-600 bg-purple-50 dark:bg-purple-950 px-1.5 py-0.5 rounded">12345678</code>
+                </span>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-all active:scale-95 cursor-pointer flex items-center gap-2"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>Daftarkan Akun Teknisi</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* List of Registered Installers */}
+          <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 p-5 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="font-bold text-sm text-[#21183A] dark:text-white">
+                  Daftar Teknisi Terdaftar ({myInstallers.length})
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Semua teknisi aktif di bawah naungan kontraktor {displayContractor}
+                </p>
+              </div>
+
+              <div className="relative w-full sm:w-64">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Cari teknisi..."
+                  value={installerSearch}
+                  onChange={e => setInstallerSearch(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-[#F5F1FF] dark:bg-[#251545] text-slate-700 dark:text-purple-200 uppercase font-semibold">
+                  <tr>
+                    <th className="py-2 px-3">Nama</th>
+                    <th className="py-2 px-3">Username</th>
+                    <th className="py-2 px-3">No. WhatsApp</th>
+                    <th className="py-2 px-3">Area</th>
+                    <th className="py-2 px-3 text-center">Beban WO</th>
+                    <th className="py-2 px-3 text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {myInstallers
+                    .filter(u => !installerSearch || u.name.toLowerCase().includes(installerSearch.toLowerCase()) || u.username.toLowerCase().includes(installerSearch.toLowerCase()))
+                    .map(u => {
+                      const woCount = contractorTickets.filter(t => t.installerName?.toLowerCase().trim() === u.name.toLowerCase().trim() && t.statusWOInstaller !== 'Completed').length;
+                      return (
+                        <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-purple-950/20">
+                          <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-white">{u.name}</td>
+                          <td className="py-2.5 px-3 font-mono text-purple-700 dark:text-purple-300">@{u.username}</td>
+                          <td className="py-2.5 px-3 font-mono">{u.phone || '-'}</td>
+                          <td className="py-2.5 px-3">{u.area || displayArea}</td>
+                          <td className="py-2.5 px-3 text-center font-mono font-bold">{woCount} WO</td>
+                          <td className="py-2.5 px-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedInstallerForDetail(u)}
+                              className="px-2.5 py-1 text-xs font-semibold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950 hover:bg-purple-100 rounded-lg border border-purple-200 dark:border-purple-800 cursor-pointer"
+                            >
+                              Detail
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* TAB: REKAPITULASI AREA & KONTRAKTOR                          */}
+      {/* ============================================================ */}
+      {activeTab === 'contractor_recap' && (
+        <ContractorAreaRecapView />
       )}
       {/* ============================================================ */}
       {/* TAB 4: PENGATURAN KUOTA & KOLOM VISIBILITAS                  */}
