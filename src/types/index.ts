@@ -16,6 +16,7 @@ export interface User {
   clusterName?: string;
   active: boolean;
   passwordHash?: string;
+  firebaseUid?: string;
   permissions?: string[];
   mustChangePassword?: boolean;
   lastLoginAt?: string;

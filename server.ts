@@ -256,6 +256,20 @@ const INITIAL_SEED_USERS: ServerUser[] = [
     active: true,
     passwordHash: DEFAULT_HASH,
     createdAt: '2026-01-01T00:00:00Z'
+  },
+  {
+    id: 'u-inactive-1',
+    name: 'Bambang Sudirgo (Akun Nonaktif)',
+    username: 'staf_nonaktif',
+    email: 'bambang.nonaktif@morajaws.net',
+    role: 'installer',
+    contractor: 'PT Kencana Solusindo',
+    contractorId: 'c-kcs',
+    area: 'Jakarta Barat',
+    phone: '085711229988',
+    active: false,
+    passwordHash: DEFAULT_HASH,
+    createdAt: '2026-01-01T00:00:00Z'
   }
 ];
 
@@ -908,6 +922,28 @@ function scopeTicketsForUser(tickets: any[], user: ServerUser): any[] {
   });
 }
 
+function getBackendTicketWODate(t: any): string | null {
+  if (!t || typeof t !== 'object') return null;
+  const candidates = [t.woDate, t.workOrderDate, t.tanggalWO, t.dateWO, t.date, t.ticketDate];
+  for (const c of candidates) {
+    if (c !== undefined && c !== null && c !== '') {
+      const match = String(c).match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
+      if (match) {
+        return `${match[1]}-${String(match[2]).padStart(2, '0')}-${String(match[3]).padStart(2, '0')}`;
+      }
+      const delMatch = String(c).match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})/);
+      if (delMatch) {
+        let d = parseInt(delMatch[1], 10);
+        let m = parseInt(delMatch[2], 10);
+        const y = parseInt(delMatch[3], 10);
+        if (m > 12 && d <= 12) { const tmp = d; d = m; m = tmp; }
+        return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      }
+    }
+  }
+  return null;
+}
+
 async function startServer() {
   loadDatabaseFromDisk();
 
@@ -1110,11 +1146,73 @@ async function startServer() {
     });
   });
 
+  // --- Identity Resolution for Staff Authentication (Maps username/email to canonical Auth account) ---
+  app.post('/api/auth/resolve-identity', (req: Request, res: Response) => {
+    const { identifier } = req.body;
+    if (!identifier) {
+      return res.status(400).json({
+        success: false,
+        found: false,
+        error: 'Nama pengguna atau email wajib diisi.',
+        code: 'INVALID_INPUT'
+      });
+    }
+
+    const clean = String(identifier).trim().toLowerCase();
+    const user = db.users.find(u => {
+      if (u.isDeleted) return false;
+      if (u.username.toLowerCase() === clean) return true;
+      if (u.email && u.email.toLowerCase() === clean) return true;
+      if (u.altEmail && u.altEmail.toLowerCase().includes(clean)) return true;
+      return false;
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        found: false,
+        error: `Nama pengguna atau email "${identifier}" tidak terdaftar dalam direktori staf MoraJaws.`,
+        code: 'auth/user-not-found'
+      });
+    }
+
+    if (!user.active) {
+      return res.status(403).json({
+        success: false,
+        found: true,
+        active: false,
+        error: 'Akun Anda telah dinonaktifkan oleh Administrator. Hubungi Super Admin.',
+        code: 'auth/user-disabled'
+      });
+    }
+
+    // Return safe identity mapping (NEVER expose passwordHash or secret credentials)
+    res.json({
+      success: true,
+      found: true,
+      active: true,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        contractor: user.contractor,
+        area: user.area,
+        firebaseUid: user.firebaseUid || null
+      }
+    });
+  });
+
   // --- Auth Endpoints with Brute-Force Rate Limiting & Session Lifecycle ---
   app.post('/api/auth/login', (req: AuthenticatedRequest, res) => {
-    const { username, password } = req.body;
+    const { username, password, firebaseUid } = req.body;
     if (!username || !password) {
-      return res.status(400).json({ error: 'Username dan kata sandi wajib diisi.' });
+      return res.status(400).json({
+        success: false,
+        error: 'Nama pengguna dan kata sandi wajib diisi.',
+        code: 'INVALID_INPUT'
+      });
     }
 
     const cleanUser = String(username).trim().toLowerCase();
@@ -1126,18 +1224,37 @@ async function startServer() {
     if (attemptInfo && attemptInfo.lockedUntil && attemptInfo.lockedUntil > nowMs) {
       const waitSeconds = Math.ceil((attemptInfo.lockedUntil - nowMs) / 1000);
       return res.status(429).json({
+        success: false,
         error: `Terlalu banyak percobaan login yang gagal. Akun/IP ditangguhkan sementara demi keamanan. Coba lagi dalam ${waitSeconds} detik.`,
-        code: 'RATE_LIMITED'
+        code: 'auth/too-many-requests'
       });
     }
 
     const user = db.users.find(
-      u => (u.username.toLowerCase() === cleanUser || u.email.toLowerCase() === cleanUser) && !u.isDeleted
+      u => (u.username.toLowerCase() === cleanUser || u.email.toLowerCase() === cleanUser || (u.altEmail && u.altEmail.toLowerCase().includes(cleanUser))) && !u.isDeleted
     );
+
+    if (!user) {
+      logServerAudit('Login Failed (User Not Found)', 'auth', cleanUser, `Percobaan login untuk identitas tidak dikenal: ${cleanUser}`, null);
+      return res.status(404).json({
+        success: false,
+        error: `Nama pengguna atau email "${username}" tidak ditemukan dalam direktori staf MoraJaws.`,
+        code: 'auth/user-not-found'
+      });
+    }
+
+    if (!user.active) {
+      logServerAudit('Login Blocked Inactive', 'auth', user.id, `Akun nonaktif mencoba login: ${user.username}`, user);
+      return res.status(403).json({
+        success: false,
+        error: 'Akun Anda telah dinonaktifkan oleh Administrator. Hubungi Super Admin.',
+        code: 'auth/user-disabled'
+      });
+    }
 
     const attemptedHash = hashPassword(password);
 
-    if (!user || user.passwordHash !== attemptedHash) {
+    if (user.passwordHash !== attemptedHash) {
       const currentAttempts = (attemptInfo?.count || 0) + 1;
       let lockedUntil: number | undefined;
       if (currentAttempts >= 5) {
@@ -1149,13 +1266,16 @@ async function startServer() {
         lockedUntil
       });
 
-      logServerAudit('Login Failed', 'auth', cleanUser, `Percobaan login gagal untuk: ${cleanUser} (${currentAttempts}x gagal)`, null);
-      return res.status(401).json({ error: 'Kredensial login tidak valid. Periksa username dan kata sandi.' });
+      logServerAudit('Login Failed (Wrong Password)', 'auth', cleanUser, `Percobaan login gagal untuk: ${cleanUser} (${currentAttempts}x gagal)`, null);
+      return res.status(401).json({
+        success: false,
+        error: 'Autentikasi gagal. Kredensial tidak cocok. Pastikan kata sandi yang Anda masukkan benar.',
+        code: 'MJ-AUTH-001'
+      });
     }
 
-    if (!user.active) {
-      logServerAudit('Login Blocked', 'auth', user.id, `Akun nonaktif mencoba login: ${user.username}`, user);
-      return res.status(403).json({ error: 'Akun Anda telah dinonaktifkan oleh Administrator. Hubungi Super Admin.' });
+    if (firebaseUid && !user.firebaseUid) {
+      user.firebaseUid = String(firebaseUid).trim();
     }
 
     LOGIN_ATTEMPTS.delete(rateLimitKey);
@@ -1255,6 +1375,68 @@ async function startServer() {
       role: user.role,
       user: user.name,
       serverTime: new Date().toISOString()
+    });
+  });
+
+  // Cross-Date Work Order Search (Exclusively for Superadmin and Dispatch by WO Number or Customer ID)
+  app.get('/api/tickets/search', requireAuth, (req: AuthenticatedRequest, res: Response) => {
+    const user = req.user!;
+    if (user.role !== 'super_admin' && user.role !== 'dispatch') {
+      logServerAudit('Access Denied (Cross-Date Search Restricted)', 'rbac', req.originalUrl, `User ${user.name} (${user.role}) ditolak melakukan pencarian lintas tanggal`, user);
+      return res.status(403).json({
+        success: false,
+        error: 'Akses Ditolak: Fitur pencarian lintas tanggal khusus diperuntukkan bagi Super Admin dan Dispatch.',
+        code: 'REQUIRE_ADMIN_OR_DISPATCH'
+      });
+    }
+
+    const q = String(req.query.q || req.query.query || '').trim();
+    if (!q) {
+      return res.json({
+        success: true,
+        tickets: [],
+        count: 0,
+        message: 'Query pencarian kosong. Masukkan Nomor WO atau ID Pelanggan.'
+      });
+    }
+
+    const qLower = q.toLowerCase();
+    const today = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Jakarta',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(new Date());
+
+    const matched = db.tickets.filter(t => {
+      if (t.isDeleted) return false;
+      const wo = (t.woNumber || t.workOrderNumber || '').trim().toLowerCase();
+      const cid = (t.idCustomer || t.customerId || '').trim().toLowerCase();
+      return wo.includes(qLower) || cid.includes(qLower);
+    }).map(t => {
+      const woDate = getBackendTicketWODate(t);
+      let dateTag: 'previous' | 'today' | 'upcoming' = 'today';
+      if (woDate) {
+        if (woDate < today) dateTag = 'previous';
+        else if (woDate > today) dateTag = 'upcoming';
+      }
+      return {
+        ...t,
+        _crossDateMeta: {
+          woDate,
+          dateTag,
+          isCrossDate: woDate !== today
+        }
+      };
+    });
+
+    logServerAudit('Cross-Date WO Search', 'search', q, `User ${user.name} (${user.role}) mencari WO lintas tanggal dengan query: "${q}" (Ditemukan: ${matched.length})`, user);
+
+    res.json({
+      success: true,
+      query: q,
+      count: matched.length,
+      tickets: matched
     });
   });
 

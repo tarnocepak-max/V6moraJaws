@@ -10,8 +10,8 @@
       "active": true,
       "passwordHash": "28232849",
       "createdAt": "2026-01-01T00:00:00Z",
-      "lastLoginAt": "2026-10-30T14:24:02.404Z",
-      "loginCount": 5,
+      "lastLoginAt": "2026-10-30T14:44:18.217Z",
+      "loginCount": 8,
       "firebaseUid": "test-uid-123"
     },
     {
@@ -31,7 +31,9 @@
         "data.sync.view",
         "data.audit.view"
       ],
-      "createdAt": "2026-01-01T00:00:00Z"
+      "createdAt": "2026-01-01T00:00:00Z",
+      "lastLoginAt": "2026-10-30T14:44:18.200Z",
+      "loginCount": 1
     },
     {
       "id": "u-dispatch-1",
@@ -42,7 +44,9 @@
       "phone": "081299001122",
       "active": true,
       "passwordHash": "28232849",
-      "createdAt": "2026-01-01T00:00:00Z"
+      "createdAt": "2026-01-01T00:00:00Z",
+      "lastLoginAt": "2026-10-30T14:44:18.178Z",
+      "loginCount": 1
     },
     {
       "id": "u-leader-1",
@@ -57,8 +61,8 @@
       "active": true,
       "passwordHash": "28232849",
       "createdAt": "2026-01-01T00:00:00Z",
-      "lastLoginAt": "2026-10-28T10:05:58.413Z",
-      "loginCount": 1
+      "lastLoginAt": "2026-10-30T14:44:18.185Z",
+      "loginCount": 2
     },
     {
       "id": "u-installer-1",
@@ -72,7 +76,9 @@
       "phone": "081299883344",
       "active": true,
       "passwordHash": "28232849",
-      "createdAt": "2026-01-01T00:00:00Z"
+      "createdAt": "2026-01-01T00:00:00Z",
+      "lastLoginAt": "2026-10-30T14:44:18.191Z",
+      "loginCount": 1
     },
     {
       "id": "u-leader-2",
@@ -99,6 +105,20 @@
       "area": "Jakarta Barat",
       "phone": "085711224455",
       "active": true,
+      "passwordHash": "28232849",
+      "createdAt": "2026-01-01T00:00:00Z"
+    },
+    {
+      "id": "u-inactive-1",
+      "name": "Bambang Sudirgo (Akun Nonaktif)",
+      "username": "staf_nonaktif",
+      "email": "bambang.nonaktif@morajaws.net",
+      "role": "installer",
+      "contractor": "PT Kencana Solusindo",
+      "contractorId": "c-kcs",
+      "area": "Jakarta Barat",
+      "phone": "085711229988",
+      "active": false,
       "passwordHash": "28232849",
       "createdAt": "2026-01-01T00:00:00Z"
     }
@@ -428,6 +448,126 @@
   "assignmentHistory": [],
   "auditLogs": [
     {
+      "id": "log_1793371458218_k5u3",
+      "action": "Login Success",
+      "entity": "auth",
+      "entityId": "u-1",
+      "details": "User Alamsyah (Super Admin) (super_admin) berhasil masuk ke sistem",
+      "performedBy": "Alamsyah (Super Admin)",
+      "userRole": "super_admin",
+      "timestamp": "2026-10-30T14:44:18.218Z"
+    },
+    {
+      "id": "log_1793371458215_king",
+      "action": "Logout Success",
+      "entity": "auth",
+      "entityId": "u-1",
+      "details": "User Alamsyah (Super Admin) (super_admin) logout dari sistem",
+      "performedBy": "Alamsyah (Super Admin)",
+      "userRole": "super_admin",
+      "timestamp": "2026-10-30T14:44:18.215Z"
+    },
+    {
+      "id": "log_1793371458213_wheq",
+      "action": "Login Blocked Inactive",
+      "entity": "auth",
+      "entityId": "u-inactive-1",
+      "details": "Akun nonaktif mencoba login: staf_nonaktif",
+      "performedBy": "Bambang Sudirgo (Akun Nonaktif)",
+      "userRole": "installer",
+      "timestamp": "2026-10-30T14:44:18.213Z"
+    },
+    {
+      "id": "log_1793371458209_iruc",
+      "action": "Login Failed (User Not Found)",
+      "entity": "auth",
+      "entityId": "user_tidak_dikenal",
+      "details": "Percobaan login untuk identitas tidak dikenal: user_tidak_dikenal",
+      "performedBy": "Anonymous / System",
+      "userRole": "system",
+      "timestamp": "2026-10-30T14:44:18.209Z"
+    },
+    {
+      "id": "log_1793371458204_uctl",
+      "action": "Login Failed (Wrong Password)",
+      "entity": "auth",
+      "entityId": "superadmin",
+      "details": "Percobaan login gagal untuk: superadmin (1x gagal)",
+      "performedBy": "Anonymous / System",
+      "userRole": "system",
+      "timestamp": "2026-10-30T14:44:18.204Z"
+    },
+    {
+      "id": "log_1793371458200_w5ef",
+      "action": "Login Success",
+      "entity": "auth",
+      "entityId": "u-mgmt",
+      "details": "User Staff Management Data (management_data) berhasil masuk ke sistem",
+      "performedBy": "Staff Management Data",
+      "userRole": "management_data",
+      "timestamp": "2026-10-30T14:44:18.200Z"
+    },
+    {
+      "id": "log_1793371458191_6ype",
+      "action": "Login Success",
+      "entity": "auth",
+      "entityId": "u-installer-1",
+      "details": "User Andi Saputra (installer) berhasil masuk ke sistem",
+      "performedBy": "Andi Saputra",
+      "userRole": "installer",
+      "timestamp": "2026-10-30T14:44:18.191Z"
+    },
+    {
+      "id": "log_1793371458185_h4da",
+      "action": "Login Success",
+      "entity": "auth",
+      "entityId": "u-leader-1",
+      "details": "User Hendra Gunawan (Leader MJS) (leader) berhasil masuk ke sistem",
+      "performedBy": "Hendra Gunawan (Leader MJS)",
+      "userRole": "leader",
+      "timestamp": "2026-10-30T14:44:18.185Z"
+    },
+    {
+      "id": "log_1793371458178_hw97",
+      "action": "Login Success",
+      "entity": "auth",
+      "entityId": "u-dispatch-1",
+      "details": "User Siti Rahma (Dispatcher) (dispatch) berhasil masuk ke sistem",
+      "performedBy": "Siti Rahma (Dispatcher)",
+      "userRole": "dispatch",
+      "timestamp": "2026-10-30T14:44:18.178Z"
+    },
+    {
+      "id": "log_1793371458169_f91z",
+      "action": "Login Success",
+      "entity": "auth",
+      "entityId": "u-1",
+      "details": "User Alamsyah (Super Admin) (super_admin) berhasil masuk ke sistem",
+      "performedBy": "Alamsyah (Super Admin)",
+      "userRole": "super_admin",
+      "timestamp": "2026-10-30T14:44:18.169Z"
+    },
+    {
+      "id": "log_1793370754582_ocf1",
+      "action": "Login Success",
+      "entity": "auth",
+      "entityId": "u-1",
+      "details": "User Alamsyah (Super Admin) (super_admin) berhasil masuk ke sistem",
+      "performedBy": "Alamsyah (Super Admin)",
+      "userRole": "super_admin",
+      "timestamp": "2026-10-30T14:32:34.582Z"
+    },
+    {
+      "id": "log_1793370746393_1hpy",
+      "action": "Login Failed",
+      "entity": "auth",
+      "entityId": "ucup",
+      "details": "Percobaan login gagal untuk: ucup (1x gagal)",
+      "performedBy": "Anonymous / System",
+      "userRole": "system",
+      "timestamp": "2026-10-30T14:32:26.393Z"
+    },
+    {
       "id": "log_1793370242404_kjbr",
       "action": "Login Success",
       "entity": "auth",
@@ -575,6 +715,113 @@
   "attachments": [],
   "sessions": [
     {
+      "sessionId": "sess_1793371458218_jp77nk",
+      "token": "mora_u-1_1793371458218_kypd2v",
+      "userId": "u-1",
+      "username": "superadmin",
+      "name": "Alamsyah (Super Admin)",
+      "role": "super_admin",
+      "loginAt": "2026-10-30T14:44:18.217Z",
+      "lastActivityAt": "2026-10-30T14:44:18.217Z",
+      "expiresAt": "2026-10-30T22:44:18.217Z",
+      "status": "active",
+      "ipAddress": "127.0.0.1",
+      "userAgent": "node",
+      "deviceType": "desktop"
+    },
+    {
+      "sessionId": "sess_1793371458200_uszecw",
+      "token": "mora_u-mgmt_1793371458200_818ukb",
+      "userId": "u-mgmt",
+      "username": "datamgmt",
+      "name": "Staff Management Data",
+      "role": "management_data",
+      "loginAt": "2026-10-30T14:44:18.200Z",
+      "lastActivityAt": "2026-10-30T14:44:18.200Z",
+      "expiresAt": "2026-10-30T22:44:18.200Z",
+      "status": "active",
+      "ipAddress": "127.0.0.1",
+      "userAgent": "node",
+      "deviceType": "desktop"
+    },
+    {
+      "sessionId": "sess_1793371458191_czyhsw",
+      "token": "mora_u-installer-1_1793371458191_aok77k",
+      "userId": "u-installer-1",
+      "username": "installer1",
+      "name": "Andi Saputra",
+      "role": "installer",
+      "contractor": "PT Mitra Jaringan Solusi",
+      "loginAt": "2026-10-30T14:44:18.191Z",
+      "lastActivityAt": "2026-10-30T14:44:18.191Z",
+      "expiresAt": "2026-10-30T22:44:18.191Z",
+      "status": "active",
+      "ipAddress": "127.0.0.1",
+      "userAgent": "node",
+      "deviceType": "desktop"
+    },
+    {
+      "sessionId": "sess_1793371458185_m9d9yv",
+      "token": "mora_u-leader-1_1793371458185_z637ar",
+      "userId": "u-leader-1",
+      "username": "leadermjs",
+      "name": "Hendra Gunawan (Leader MJS)",
+      "role": "leader",
+      "contractor": "PT Mitra Jaringan Solusi",
+      "loginAt": "2026-10-30T14:44:18.185Z",
+      "lastActivityAt": "2026-10-30T14:44:18.185Z",
+      "expiresAt": "2026-10-30T22:44:18.185Z",
+      "status": "active",
+      "ipAddress": "127.0.0.1",
+      "userAgent": "node",
+      "deviceType": "desktop"
+    },
+    {
+      "sessionId": "sess_1793371458178_x9gw92",
+      "token": "mora_u-dispatch-1_1793371458178_1y9v8c",
+      "userId": "u-dispatch-1",
+      "username": "dispatch",
+      "name": "Siti Rahma (Dispatcher)",
+      "role": "dispatch",
+      "loginAt": "2026-10-30T14:44:18.178Z",
+      "lastActivityAt": "2026-10-30T14:44:18.178Z",
+      "expiresAt": "2026-10-30T22:44:18.178Z",
+      "status": "active",
+      "ipAddress": "127.0.0.1",
+      "userAgent": "node",
+      "deviceType": "desktop"
+    },
+    {
+      "sessionId": "sess_1793371458168_wb4lo4",
+      "token": "mora_u-1_1793371458168_vw6xpo",
+      "userId": "u-1",
+      "username": "superadmin",
+      "name": "Alamsyah (Super Admin)",
+      "role": "super_admin",
+      "loginAt": "2026-10-30T14:44:18.168Z",
+      "lastActivityAt": "2026-10-30T14:44:18.215Z",
+      "expiresAt": "2026-10-30T22:44:18.168Z",
+      "status": "revoked",
+      "ipAddress": "127.0.0.1",
+      "userAgent": "node",
+      "deviceType": "desktop"
+    },
+    {
+      "sessionId": "sess_1793370754582_lhfxho",
+      "token": "mora_u-1_1793370754582_zrq4l8",
+      "userId": "u-1",
+      "username": "superadmin",
+      "name": "Alamsyah (Super Admin)",
+      "role": "super_admin",
+      "loginAt": "2026-10-30T14:32:34.581Z",
+      "lastActivityAt": "2026-10-30T14:32:34.581Z",
+      "expiresAt": "2026-10-30T22:32:34.581Z",
+      "status": "active",
+      "ipAddress": "127.0.0.1",
+      "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Mobile Safari/537.36",
+      "deviceType": "mobile"
+    },
+    {
       "sessionId": "sess_1793370242404_0y0bv4",
       "token": "mora_u-1_1793370242404_75wjah",
       "userId": "u-1",
@@ -599,7 +846,7 @@
       "loginAt": "2026-10-30T14:22:23.846Z",
       "lastActivityAt": "2026-10-30T14:23:30.653Z",
       "expiresAt": "2026-10-30T22:22:23.846Z",
-      "status": "active",
+      "status": "revoked",
       "ipAddress": "127.0.0.1",
       "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Mobile Safari/537.36",
       "deviceType": "mobile"
@@ -614,7 +861,7 @@
       "loginAt": "2026-10-28T16:45:10.911Z",
       "lastActivityAt": "2026-10-28T16:45:10.911Z",
       "expiresAt": "2026-10-29T00:45:10.911Z",
-      "status": "active",
+      "status": "revoked",
       "ipAddress": "127.0.0.1",
       "userAgent": "curl/7.88.1",
       "deviceType": "desktop"

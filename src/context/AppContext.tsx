@@ -31,7 +31,8 @@ import {
   DEFAULT_CONTRACTORS,
   DEFAULT_COVERAGE_AREAS,
   DEFAULT_ROOT_CAUSE_CATEGORIES,
-  DEFAULT_WORK_RESULTS
+  DEFAULT_WORK_RESULTS,
+  DEFAULT_USERS
 } from '../constants/defaultConfig';
 import { executeWorkflowsOnTicket } from '../services/workflowEngine';
 import { renderWhatsAppMessage, buildWhatsAppClickToChatUrl } from '../services/whatsappService';
@@ -54,7 +55,8 @@ import {
 import { useToast } from './ToastContext';
 import { saveTicketsOffline, cacheMasterData, getOfflineTickets, removeSyncQueueItem } from '../services/offlineDb';
 import { useOfflineSync } from './OfflineSyncContext';
-import { testFirestoreConnection, pingFirestore } from '../lib/firebase';
+import { auth, testFirestoreConnection, pingFirestore } from '../lib/firebase';
+import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import {
   subscribeToMoraJawsFirestore,
   saveTicketToFirestore,
@@ -92,7 +94,7 @@ interface AppContextType {
   // Current user & RBAC
   currentUser: User;
   isLoggedIn: boolean;
-  login: (username: string, password: string) => Promise<{ success: boolean; error?: string; user?: User }> | { success: boolean; error?: string; user?: User };
+  login: (username: string, password: string) => Promise<{ success: boolean; error?: string; user?: User; errorCode?: string }>;
   loginWithFirebase: (firebaseData: { email: string; uid: string; displayName?: string }) => Promise<{ success: boolean; error?: string; user?: User }>;
   logout: () => void;
   users: User[];
@@ -284,37 +286,6 @@ export const deduplicateContractors = (list: Contractor[]): Contractor[] => {
   return result;
 };
 
-const DEFAULT_USERS: User[] = [
-  {
-    id: 'u-1',
-    userId: 'u-1',
-    name: 'Alamsyah (Super Admin)',
-    username: 'superadmin',
-    email: 'tarnocepak@gmail.com',
-    role: 'super_admin',
-    active: true,
-    passwordHash: DEFAULT_PASSWORD_HASH,
-    lastLoginAt: new Date().toISOString(),
-    loginCount: 1,
-    mustChangePassword: false,
-    createdAt: '2026-01-01T00:00:00Z'
-  },
-  {
-    id: 'u-mgmt',
-    userId: 'u-mgmt',
-    name: 'Rian Data Officer (Management Data)',
-    username: 'datamgmt',
-    email: 'mgmt@morajaws.net',
-    role: 'management_data',
-    active: true,
-    passwordHash: DEFAULT_PASSWORD_HASH,
-    lastLoginAt: new Date().toISOString(),
-    loginCount: 1,
-    mustChangePassword: false,
-    createdAt: '2026-01-01T00:00:00Z'
-  }
-];
-
 const INITIAL_MESSAGES: TicketMessage[] = [];
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -356,10 +327,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const saved = localStorage.getItem(STORAGE_KEYS.USERS);
       if (saved) {
         const parsed: User[] = JSON.parse(saved);
-        // Ensure u-mgmt is present
-        if (!parsed.some(u => u.username === 'datamgmt')) {
-          parsed.push(DEFAULT_USERS[1]);
-        }
+        DEFAULT_USERS.forEach(defU => {
+          if (!parsed.some(u => u.id === defU.id || u.username.toLowerCase() === defU.username.toLowerCase())) {
+            parsed.push(defU);
+          }
+        });
         return parsed;
       }
     } catch (e) {}
@@ -946,98 +918,173 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   // Authentication & Session
-  const login = async (username: string, password: string): Promise<{ success: boolean; error?: string; user?: User }> => {
-    const cleanUser = username.trim().toLowerCase();
-    const hash = quickHash(password);
+  const login = async (username: string, password: string): Promise<{ success: boolean; error?: string; user?: User; errorCode?: string }> => {
+    const cleanUser = username.trim();
+    if (!cleanUser) {
+      return { success: false, error: 'Nama pengguna atau email wajib diisi.', errorCode: 'INVALID_INPUT' };
+    }
+    if (!password) {
+      return { success: false, error: 'Kata sandi wajib diisi.', errorCode: 'INVALID_INPUT' };
+    }
 
-    // Try backend authentication with rate limiting and session creation
+    // 1. Connectivity Check: Never blame wrong credentials when connection is down
+    if (!navigator.onLine) {
+      return {
+        success: false,
+        error: 'Koneksi jaringan terputus. Pastikan perangkat Anda terhubung ke internet.',
+        errorCode: 'auth/network-request-failed'
+      };
+    }
+
     try {
+      // 2. Identity Resolution: Map username/email to canonical Auth account via secure backend
+      let resolveData: any = null;
+      try {
+        const resolveRes = await fetch('/api/auth/resolve-identity', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ identifier: cleanUser })
+        });
+        resolveData = await resolveRes.json();
+      } catch (netErr: any) {
+        return {
+          success: false,
+          error: 'Gagal menghubungi server autentikasi MoraJaws. Periksa koneksi jaringan Anda.',
+          errorCode: 'auth/network-request-failed'
+        };
+      }
+
+      if (!resolveData || !resolveData.found) {
+        addAuditLog('Login Attempt Failed', 'auth', cleanUser, `Percobaan login gagal: Identitas "${cleanUser}" tidak terdaftar`);
+        return {
+          success: false,
+          error: resolveData?.error || `Nama pengguna atau email "${cleanUser}" tidak ditemukan dalam direktori staf MoraJaws.`,
+          errorCode: 'auth/user-not-found'
+        };
+      }
+
+      if (resolveData.active === false) {
+        addAuditLog('Login Blocked Inactive', 'auth', cleanUser, `Akun dinonaktifkan mencoba login: ${cleanUser}`);
+        return {
+          success: false,
+          error: 'Akun Anda telah dinonaktifkan oleh Administrator. Hubungi Super Admin.',
+          errorCode: 'auth/user-disabled'
+        };
+      }
+
+      const targetEmail = resolveData.user.email;
+      let firebaseUid: string | undefined = resolveData.user.firebaseUid;
+
+      // 3. Primary Authentication Mechanism: Firebase Authentication signInWithEmailAndPassword
+      let firebaseErrorEncountered = false;
+      try {
+        const userCred = await signInWithEmailAndPassword(auth, targetEmail, password);
+        if (userCred && userCred.user) {
+          firebaseUid = userCred.user.uid;
+        }
+      } catch (fbErr: any) {
+        firebaseErrorEncountered = true;
+        const code = fbErr?.code || '';
+        
+        // Accurate Firebase Auth error handling per Section 4 of prompt
+        if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
+          addAuditLog('Login Failed', 'auth', cleanUser, `Kredensial kata sandi salah untuk ${cleanUser}`);
+          return {
+            success: false,
+            error: 'Autentikasi gagal. Kredensial tidak cocok. Pastikan kata sandi yang Anda masukkan benar.',
+            errorCode: 'MJ-AUTH-001'
+          };
+        } else if (code === 'auth/too-many-requests') {
+          return {
+            success: false,
+            error: 'Terlalu banyak percobaan login yang gagal. Akses akun ditangguhkan sementara demi keamanan. Coba lagi dalam beberapa menit.',
+            errorCode: 'auth/too-many-requests'
+          };
+        } else if (code === 'auth/user-disabled') {
+          return {
+            success: false,
+            error: 'Akun staf ini telah dinonaktifkan di Firebase Authentication. Hubungi Administrator.',
+            errorCode: 'auth/user-disabled'
+          };
+        } else if (code === 'auth/network-request-failed') {
+          return {
+            success: false,
+            error: 'Gagal terhubung ke server autentikasi Firebase. Periksa koneksi internet Anda.',
+            errorCode: 'auth/network-request-failed'
+          };
+        } else if (code === 'auth/operation-not-allowed') {
+          // Log specific configuration note per Section 4
+          console.warn('[Firebase Auth] Password provider is disabled in Firebase Console. Verifying via MoraJaws secure backend provider...');
+        } else if (code === 'auth/user-not-found') {
+          console.warn('[Firebase Auth] User not found in Firebase Auth tenant. Verifying via MoraJaws secure backend provider...');
+        }
+      }
+
+      // 4. Secure Backend Session Authorization & Role Verification
       const serverRes = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: cleanUser, password })
+        body: JSON.stringify({
+          username: cleanUser,
+          password,
+          firebaseUid: firebaseUid || undefined
+        })
       });
+
       const data = await serverRes.json();
-      if (!data.success) {
+      if (!serverRes.ok || !data.success) {
+        const errCode = data.code || 'MJ-AUTH-001';
         addAuditLog('Login Attempt Failed', 'auth', cleanUser, data.error || 'Login gagal');
-        return { success: false, error: data.error || 'Username atau kata sandi yang Anda masukkan salah.' };
-      }
-
-      if (data.user) {
-        const authedUser: User = {
-          ...data.user,
-          lastLoginAt: new Date().toISOString()
+        return {
+          success: false,
+          error: data.error || 'Autentikasi gagal. Kredensial tidak cocok.',
+          errorCode: errCode
         };
-        setUsers(prev => {
-          const exists = prev.find(u => u.id === authedUser.id);
-          if (exists) {
-            return prev.map(u => u.id === authedUser.id ? { ...u, ...authedUser } : u);
-          }
-          return [...prev, authedUser];
-        });
-        setCurrentUser(authedUser);
-        setIsLoggedIn(true);
-
-        try {
-          localStorage.setItem('morajaws_logged_in', 'true');
-          localStorage.setItem('morajaws_auth_session', JSON.stringify({
-            userId: authedUser.id,
-            username: authedUser.username,
-            role: authedUser.role,
-            name: authedUser.name,
-            loginAt: authedUser.lastLoginAt,
-            token: data.token,
-            sessionId: data.sessionId,
-            expiresAt: data.expiresAt
-          }));
-        } catch (e) {}
-
-        addAuditLog('Login Success', 'auth', authedUser.id, `Pengguna ${authedUser.name} (${authedUser.role}) berhasil login ke sistem`);
-        loadCentralData();
-        return { success: true, user: authedUser };
       }
-    } catch (netErr) {
-      // Local fallback in case network to server fails
+
+      // 5. Establish authenticated session
+      const authedUser: User = {
+        ...data.user,
+        firebaseUid: firebaseUid || data.user?.firebaseUid,
+        lastLoginAt: new Date().toISOString()
+      };
+
+      setUsers(prev => {
+        const exists = prev.find(u => u.id === authedUser.id);
+        if (exists) {
+          return prev.map(u => u.id === authedUser.id ? { ...u, ...authedUser } : u);
+        }
+        return [...prev, authedUser];
+      });
+      setCurrentUser(authedUser);
+      setIsLoggedIn(true);
+
+      try {
+        localStorage.setItem('morajaws_logged_in', 'true');
+        localStorage.setItem('morajaws_auth_session', JSON.stringify({
+          userId: authedUser.id,
+          username: authedUser.username,
+          role: authedUser.role,
+          name: authedUser.name,
+          loginAt: authedUser.lastLoginAt,
+          token: data.token,
+          sessionId: data.sessionId,
+          expiresAt: data.expiresAt
+        }));
+      } catch (e) {}
+
+      addAuditLog('Login Success', 'auth', authedUser.id, `Pengguna ${authedUser.name} (${authedUser.role}) berhasil login ke sistem`);
+      await loadCentralData();
+      return { success: true, user: authedUser };
+
+    } catch (err: any) {
+      console.error('[Auth] Login exception:', err);
+      return {
+        success: false,
+        error: err?.message || 'Terjadi gangguan saat memproses autentikasi.',
+        errorCode: 'AUTH_EXCEPTION'
+      };
     }
-
-    const found = users.find(u => (u.username.toLowerCase() === cleanUser || u.email?.toLowerCase() === cleanUser) && !u.isArchived);
-
-    if (!found || (found.passwordHash && found.passwordHash !== hash)) {
-      addAuditLog('Login Attempt Failed', 'auth', cleanUser, `Percobaan login gagal untuk username/email: ${cleanUser}`);
-      return { success: false, error: 'Username atau kata sandi yang Anda masukkan salah.' };
-    }
-
-    if (!found.active) {
-      addAuditLog('Login Blocked Inactive', 'auth', found.id, `Akun dinonaktifkan mencoba login: ${found.username}`);
-      return { success: false, error: 'Akun Anda telah dinonaktifkan oleh Administrator. Hubungi Super Admin.' };
-    }
-
-    const now = new Date().toISOString();
-    const updatedUser: User = {
-      ...found,
-      lastLoginAt: now,
-      loginCount: (found.loginCount || 0) + 1
-    };
-
-    setUsers(prev => prev.map(u => u.id === found.id ? updatedUser : u));
-    setCurrentUser(updatedUser);
-    setIsLoggedIn(true);
-
-    try {
-      localStorage.setItem('morajaws_logged_in', 'true');
-      localStorage.setItem('morajaws_auth_session', JSON.stringify({
-        userId: found.id,
-        username: found.username,
-        role: found.role,
-        name: found.name,
-        loginAt: now,
-        token: `mora_${found.id}_${Date.now()}`
-      }));
-    } catch (e) {}
-
-    addAuditLog('Login Success', 'auth', found.id, `Pengguna ${found.name} (${found.role}) berhasil login ke sistem`);
-    await loadCentralData();
-    return { success: true, user: updatedUser };
   };
 
   const loginWithFirebase = async (firebaseData: { email: string; uid: string; displayName?: string }): Promise<{ success: boolean; error?: string; user?: User }> => {
@@ -1145,6 +1192,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       localStorage.setItem('morajaws_logged_in', 'false');
       localStorage.removeItem('morajaws_auth_session');
+    } catch (e) {}
+
+    // Sign out from Firebase Authentication
+    try {
+      signOut(auth).catch(() => {});
     } catch (e) {}
 
     fetch('/api/auth/logout', {

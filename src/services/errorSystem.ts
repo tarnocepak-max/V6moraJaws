@@ -6,6 +6,7 @@ export type MoraJawsErrorCode =
   | 'MJ-AUTH-002'
   | 'MJ-AUTH-003'
   | 'MJ-AUTH-004'
+  | 'MJ-AUTH-005'
   | 'MJ-AUTH-NET-001'
   | 'MJ-FS-001'
   | 'MJ-FS-002'

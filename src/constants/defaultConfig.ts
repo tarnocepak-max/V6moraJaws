@@ -8,8 +8,10 @@ import {
   Ticket,
   Contractor,
   CoverageArea,
-  RootCauseCategory
+  RootCauseCategory,
+  User
 } from '../types';
+import { DEFAULT_PASSWORD_HASH } from '../services/authService';
 
 export const DEFAULT_COLUMNS: ColumnConfig[] = [
   { key: 'woNumber', label: 'WO Number', visible: true, order: 1, width: 140, sticky: 'left', format: 'code', sortable: true, filterable: true },
@@ -730,4 +732,141 @@ export const DEFAULT_WORK_RESULTS: string[] = [
   'Perlu Eskalasi',
   'Perlu Kunjungan Ulang'
 ];
+
+export const DEFAULT_USERS: User[] = [
+  {
+    id: 'u-1',
+    userId: 'u-1',
+    name: 'Alamsyah (Super Admin)',
+    username: 'superadmin',
+    email: 'tarnocepak@gmail.com',
+    role: 'super_admin',
+    active: true,
+    passwordHash: DEFAULT_PASSWORD_HASH,
+    lastLoginAt: '2026-01-01T00:00:00Z',
+    loginCount: 1,
+    mustChangePassword: false,
+    createdAt: '2026-01-01T00:00:00Z'
+  },
+  {
+    id: 'u-mgmt',
+    userId: 'u-mgmt',
+    name: 'Staff Management Data',
+    username: 'datamgmt',
+    email: 'data.ops@morajaws.net',
+    role: 'management_data',
+    active: true,
+    passwordHash: DEFAULT_PASSWORD_HASH,
+    lastLoginAt: '2026-01-01T00:00:00Z',
+    loginCount: 1,
+    mustChangePassword: false,
+    createdAt: '2026-01-01T00:00:00Z'
+  },
+  {
+    id: 'u-dispatch-1',
+    userId: 'u-dispatch-1',
+    name: 'Siti Rahma (Dispatcher)',
+    username: 'dispatch',
+    email: 'dispatch@morajaws.net',
+    role: 'dispatch',
+    phone: '081299001122',
+    active: true,
+    passwordHash: DEFAULT_PASSWORD_HASH,
+    lastLoginAt: '2026-01-01T00:00:00Z',
+    loginCount: 1,
+    mustChangePassword: false,
+    createdAt: '2026-01-01T00:00:00Z'
+  },
+  {
+    id: 'u-leader-1',
+    userId: 'u-leader-1',
+    name: 'Hendra Gunawan (Leader MJS)',
+    username: 'leadermjs',
+    email: 'hendra@mjs.morajaws.net',
+    role: 'leader',
+    contractor: 'PT Mitra Jaringan Solusi',
+    contractorId: 'c-mjs',
+    area: 'Jakarta Selatan',
+    phone: '081288990011',
+    active: true,
+    passwordHash: DEFAULT_PASSWORD_HASH,
+    lastLoginAt: '2026-01-01T00:00:00Z',
+    loginCount: 1,
+    mustChangePassword: false,
+    createdAt: '2026-01-01T00:00:00Z'
+  },
+  {
+    id: 'u-installer-1',
+    userId: 'u-installer-1',
+    name: 'Andi Saputra',
+    username: 'installer1',
+    email: 'andi@installer.morajaws.net',
+    role: 'installer',
+    contractor: 'PT Mitra Jaringan Solusi',
+    contractorId: 'c-mjs',
+    area: 'Jakarta Selatan',
+    phone: '081299883344',
+    active: true,
+    passwordHash: DEFAULT_PASSWORD_HASH,
+    lastLoginAt: '2026-01-01T00:00:00Z',
+    loginCount: 1,
+    mustChangePassword: false,
+    createdAt: '2026-01-01T00:00:00Z'
+  },
+  {
+    id: 'u-leader-2',
+    userId: 'u-leader-2',
+    name: 'Dedi Kurniawan (Leader KCS)',
+    username: 'leaderkcs',
+    email: 'dedi@kcs.morajaws.net',
+    role: 'leader',
+    contractor: 'PT Kencana Solusindo',
+    contractorId: 'c-kcs',
+    area: 'Jakarta Barat',
+    phone: '085711223344',
+    active: true,
+    passwordHash: DEFAULT_PASSWORD_HASH,
+    lastLoginAt: '2026-01-01T00:00:00Z',
+    loginCount: 1,
+    mustChangePassword: false,
+    createdAt: '2026-01-01T00:00:00Z'
+  },
+  {
+    id: 'u-installer-2',
+    userId: 'u-installer-2',
+    name: 'Budi Santoso',
+    username: 'installer2',
+    email: 'budi@installer.morajaws.net',
+    role: 'installer',
+    contractor: 'PT Kencana Solusindo',
+    contractorId: 'c-kcs',
+    area: 'Jakarta Barat',
+    phone: '085711224455',
+    active: true,
+    passwordHash: DEFAULT_PASSWORD_HASH,
+    lastLoginAt: '2026-01-01T00:00:00Z',
+    loginCount: 1,
+    mustChangePassword: false,
+    createdAt: '2026-01-01T00:00:00Z'
+  },
+  {
+    id: 'u-inactive-1',
+    userId: 'u-inactive-1',
+    name: 'Bambang Sudirgo (Akun Nonaktif)',
+    username: 'staf_nonaktif',
+    email: 'bambang.nonaktif@morajaws.net',
+    role: 'installer',
+    contractor: 'PT Kencana Solusindo',
+    contractorId: 'c-kcs',
+    area: 'Jakarta Barat',
+    phone: '085711229988',
+    active: false,
+    passwordHash: DEFAULT_PASSWORD_HASH,
+    lastLoginAt: '2026-01-01T00:00:00Z',
+    loginCount: 0,
+    mustChangePassword: false,
+    createdAt: '2026-01-01T00:00:00Z'
+  }
+];
+
 
