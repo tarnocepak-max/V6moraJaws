@@ -23,7 +23,8 @@ import {
   WhatsAppTemplate,
   User,
   UIConfiguration,
-  ReportDropdownCategory
+  ReportDropdownCategory,
+  getCategoryPermanentId
 } from '../types/index.ts';
 import { deduplicateTicketsInMemory, getDeterministicTicketId, normalizeWoNumber } from './woDeduplicationService';
 
@@ -499,16 +500,137 @@ export async function saveUIConfigurationToFirestore(payload: {
     });
     await setDoc(docRef, dataToSave, { merge: true });
 
-    // Also mirror to global for backwards compatibility & root-level navigationSettings access
+    // Build normalized categories mapping according to specification
+    const rawCategories = payload.config?.navigationSettings?.categories || {};
+    const normalizedCategories: Record<string, { accordionEnabled: boolean }> = {
+      dashboard: { accordionEnabled: false },
+      operasional: { accordionEnabled: true },
+      woContractor: { accordionEnabled: false },
+      taskInstaller: { accordionEnabled: false },
+      pelanggan: { accordionEnabled: true },
+      laporan: { accordionEnabled: true },
+      setup: { accordionEnabled: false }
+    };
+
+    // Populate normalizedCategories with actual values using permanent IDs
+    Object.entries(rawCategories).forEach(([key, val]) => {
+      const permId = getCategoryPermanentId(key);
+      if (permId && val) {
+        normalizedCategories[permId] = { accordionEnabled: Boolean(val.accordionEnabled) };
+      }
+    });
+
+    const finalNavigationSettings = {
+      categories: normalizedCategories,
+      allowMultipleOpenGroups: payload.config?.navigationSettings?.allowMultipleOpenGroups !== false
+    };
+
     try {
-      const globalDoc = doc(db, COLLECTIONS.APP_SETTINGS, 'global');
-      await setDoc(globalDoc, {
-        uiConfig: payload.config,
-        navigationItems: payload.navigationItems,
+      const navigationPayload = {
+        categories: finalNavigationSettings.categories,
+        allowMultipleOpenGroups: finalNavigationSettings.allowMultipleOpenGroups,
         menuCategories: payload.menuCategories,
-        navigationSettings: payload.config?.navigationSettings || null,
+        items: payload.navigationItems,
+        sidebarConfig: {
+          style: 'dribbble-enterprise',
+          theme: 'dark-navy',
+          activeIndicator: 'triple'
+        },
+        bottomNavConfig: {
+          maxItems: 5,
+          enabled: true
+        },
         updatedAt,
         updatedBy: payload.updatedBy || 'Super Admin'
+      };
+
+      const globalDoc = doc(db, COLLECTIONS.APP_SETTINGS, 'global');
+      await setDoc(globalDoc, {
+        navigationSettings: finalNavigationSettings,
+        navigation: navigationPayload,
+        uiConfig: {
+          ...payload.config,
+          navigationSettings: finalNavigationSettings
+        },
+        navigationItems: payload.navigationItems,
+        menuCategories: payload.menuCategories,
+        updatedAt,
+        updatedBy: payload.updatedBy || 'Super Admin'
+      }, { merge: true });
+    } catch (gErr) {
+      console.warn('[Firestore] Failed to mirror to appSettings/global:', gErr);
+    }
+
+    return { success: true, updatedAt };
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+    throw error;
+  }
+}
+
+export async function saveNavigationSettingsToFirestore(
+  navSettings: any,
+  updatedBy: string = 'Superadmin'
+): Promise<{ success: boolean; updatedAt: string }> {
+  const path = `${COLLECTIONS.APP_SETTINGS}/global`;
+  try {
+    const updatedAt = new Date().toISOString();
+    const rawCategories = navSettings?.categories || {};
+    const normalizedCategories: Record<string, { accordionEnabled: boolean }> = {
+      dashboard: { accordionEnabled: false },
+      operasional: { accordionEnabled: true },
+      woContractor: { accordionEnabled: false },
+      taskInstaller: { accordionEnabled: false },
+      pelanggan: { accordionEnabled: true },
+      laporan: { accordionEnabled: true },
+      setup: { accordionEnabled: false }
+    };
+
+    Object.entries(rawCategories).forEach(([key, val]: [string, any]) => {
+      const permId = getCategoryPermanentId(key);
+      if (permId && val) {
+        normalizedCategories[permId] = { accordionEnabled: Boolean(val.accordionEnabled) };
+      }
+    });
+
+    const finalNavigationSettings = {
+      categories: normalizedCategories,
+      allowMultipleOpenGroups: navSettings?.allowMultipleOpenGroups !== false
+    };
+
+    const payload = {
+      navigationSettings: finalNavigationSettings,
+      navigation: {
+        categories: normalizedCategories,
+        allowMultipleOpenGroups: navSettings?.allowMultipleOpenGroups !== false,
+        sidebarConfig: {
+          style: 'dribbble-enterprise',
+          theme: 'dark-navy',
+          activeIndicator: 'triple'
+        },
+        bottomNavConfig: {
+          maxItems: 5,
+          enabled: true
+        },
+        updatedAt,
+        updatedBy
+      },
+      updatedAt,
+      updatedBy
+    };
+
+    // 1. Write to appSettings/global
+    const globalRef = doc(db, COLLECTIONS.APP_SETTINGS, 'global');
+    await setDoc(globalRef, payload, { merge: true });
+
+    // 2. Also sync to appSettings/ui_configuration
+    try {
+      const uiRef = doc(db, COLLECTIONS.APP_SETTINGS, 'ui_configuration');
+      await setDoc(uiRef, {
+        'config.navigationSettings': payload.navigationSettings,
+        navigation: payload.navigation,
+        updatedAt,
+        updatedBy
       }, { merge: true });
     } catch {}
 
@@ -522,31 +644,67 @@ export async function saveUIConfigurationToFirestore(payload: {
 export async function loadUIConfigurationFromFirestore(): Promise<CloudUIConfigurationPayload | null> {
   const path = `${COLLECTIONS.APP_SETTINGS}/ui_configuration`;
   try {
-    const docRef = doc(db, COLLECTIONS.APP_SETTINGS, 'ui_configuration');
-    const snap = await getDoc(docRef);
-    if (snap.exists()) {
-      const data = snap.data() as CloudUIConfigurationPayload;
-      return data;
-    }
-    // Fallback to global
-    const globalRef = doc(db, COLLECTIONS.APP_SETTINGS, 'global');
-    const gSnap = await getDoc(globalRef);
-    if (gSnap.exists()) {
-      const gData = gSnap.data();
-      if (gData.uiConfig || gData.navigationItems) {
-        const loadedConfig = gData.uiConfig || {};
-        if (gData.navigationSettings && !loadedConfig.navigationSettings) {
-          loadedConfig.navigationSettings = gData.navigationSettings;
+    let loadedData: CloudUIConfigurationPayload | null = null;
+    let globalNavSettings: any = null;
+
+    // Check global document first for canonical navigationSettings
+    try {
+      const globalRef = doc(db, COLLECTIONS.APP_SETTINGS, 'global');
+      const gSnap = await getDoc(globalRef);
+      if (gSnap.exists()) {
+        const gData = gSnap.data();
+        if (gData.navigationSettings) {
+          globalNavSettings = gData.navigationSettings;
         }
-        return {
-          config: loadedConfig,
-          navigationItems: gData.navigationItems,
-          menuCategories: gData.menuCategories || [],
-          updatedAt: gData.updatedAt || new Date().toISOString(),
-          updatedBy: gData.updatedBy || 'System'
+        if (gData.uiConfig || gData.navigationItems) {
+          loadedData = {
+            config: gData.uiConfig || {},
+            navigationItems: gData.navigationItems || [],
+            menuCategories: gData.menuCategories || [],
+            updatedAt: gData.updatedAt || new Date().toISOString(),
+            updatedBy: gData.updatedBy || 'System'
+          };
+        }
+      }
+    } catch {}
+
+    // Check ui_configuration document
+    try {
+      const docRef = doc(db, COLLECTIONS.APP_SETTINGS, 'ui_configuration');
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        const uData = snap.data() as CloudUIConfigurationPayload;
+        if (!loadedData) {
+          loadedData = uData;
+        } else {
+          // Merge with priority on newest data
+          loadedData = {
+            ...loadedData,
+            ...uData,
+            config: {
+              ...(loadedData.config || {}),
+              ...(uData.config || {})
+            }
+          };
+        }
+      }
+    } catch {}
+
+    if (loadedData) {
+      if (globalNavSettings) {
+        if (!loadedData.config) loadedData.config = {} as any;
+        loadedData.config.navigationSettings = {
+          ...(loadedData.config.navigationSettings || {}),
+          ...globalNavSettings,
+          categories: {
+            ...((loadedData.config.navigationSettings as any)?.categories || {}),
+            ...(globalNavSettings.categories || {})
+          }
         };
       }
+      return loadedData;
     }
+
     return null;
   } catch (error) {
     handleFirestoreError(error, OperationType.GET, path);
@@ -556,13 +714,50 @@ export async function loadUIConfigurationFromFirestore(): Promise<CloudUIConfigu
 
 export function subscribeToUIConfiguration(callback: (data: CloudUIConfigurationPayload) => void): Unsubscribe {
   const docRef = doc(db, COLLECTIONS.APP_SETTINGS, 'ui_configuration');
-  return onSnapshot(docRef, (snap) => {
+  const globalRef = doc(db, COLLECTIONS.APP_SETTINGS, 'global');
+
+  let lastKnownConfig: CloudUIConfigurationPayload | null = null;
+
+  const unsubUI = onSnapshot(docRef, (snap) => {
     if (snap.exists()) {
-      callback(snap.data() as CloudUIConfigurationPayload);
+      const data = snap.data() as CloudUIConfigurationPayload;
+      lastKnownConfig = data;
+      callback(data);
     }
   }, (err) => {
     console.warn('[Firestore] UI Configuration subscription warning:', err);
   });
+
+  const unsubGlobal = onSnapshot(globalRef, (snap) => {
+    if (snap.exists()) {
+      const gData = snap.data();
+      if (gData.navigationSettings && lastKnownConfig) {
+        const merged: CloudUIConfigurationPayload = {
+          ...lastKnownConfig,
+          config: {
+            ...lastKnownConfig.config,
+            navigationSettings: {
+              ...lastKnownConfig.config?.navigationSettings,
+              ...gData.navigationSettings,
+              categories: {
+                ...(lastKnownConfig.config?.navigationSettings?.categories || {}),
+                ...(gData.navigationSettings.categories || {})
+              }
+            }
+          },
+          updatedAt: gData.updatedAt || lastKnownConfig.updatedAt
+        };
+        callback(merged);
+      }
+    }
+  }, (err) => {
+    console.warn('[Firestore] Global AppSettings subscription warning:', err);
+  });
+
+  return () => {
+    unsubUI();
+    unsubGlobal();
+  };
 }
 
 export async function deleteTicketFromFirestore(ticketId: string, woNumber?: string): Promise<void> {

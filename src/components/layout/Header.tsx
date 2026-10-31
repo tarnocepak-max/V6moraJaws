@@ -139,79 +139,95 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate }) => {
 
       {/* Zone 2: Navigation Links */}
       <nav className="hidden lg:flex items-center gap-5 text-xs font-semibold text-[#756B8D] dark:text-[#D8CCF3]">
-        <button
-          onClick={() => onNavigate('dashboard')}
-          className={`hover:text-[#5B35B1] dark:hover:text-[#E9E1FF] transition-colors whitespace-nowrap pb-1 cursor-pointer ${
-            activeTab === 'dashboard' ? 'text-[#5B35B1] dark:text-[#E9E1FF] border-b-2 border-[#5B35B1] dark:border-[#8064D9] font-bold' : ''
-          }`}
-        >
-          Dashboard
-        </button>
-        <button
-          onClick={() => onNavigate('tickets')}
-          className={`hover:text-[#5B35B1] dark:hover:text-[#E9E1FF] transition-colors whitespace-nowrap pb-1 cursor-pointer ${
-            activeTab === 'tickets' ? 'text-[#5B35B1] dark:text-[#E9E1FF] border-b-2 border-[#5B35B1] dark:border-[#8064D9] font-bold' : ''
-          }`}
-        >
-          Ticket MyRepublic ({tickets.filter(t => !t.isArchived).length})
-        </button>
-
-        {(currentUser.role === 'super_admin' || currentUser.role === 'leader') && (
-          <div className="flex items-center gap-2">
+        {currentUser.role === 'installer' ? (
+          // KHUSUS ROLE INSTALLER: Hanya 2 Menu Navigasi
+          <>
             <button
-              onClick={() => onNavigate('leader_portal')}
+              onClick={() => onNavigate('installer_portal')}
               className={`hover:text-[#5B35B1] dark:hover:text-[#E9E1FF] transition-colors whitespace-nowrap pb-1 cursor-pointer ${
-                activeTab === 'leader_portal' ? 'text-[#5B35B1] dark:text-[#E9E1FF] border-b-2 border-[#5B35B1] dark:border-[#8064D9] font-bold' : ''
+                activeTab === 'installer_portal' ? 'text-[#5B35B1] dark:text-[#E9E1FF] border-b-2 border-[#5B35B1] dark:border-[#8064D9] font-bold' : ''
               }`}
             >
-              Dashboard Leader
+              Dashboard Installer
             </button>
-            {activeTab === 'leader_portal' && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-950/70 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-700/80 shadow-2xs">
-                <span className="flex items-center gap-1 font-bold text-amber-900 dark:text-amber-100">
-                  <Building2 className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                  <span>{activeContractor}</span>
-                </span>
-                <span className="text-amber-300 dark:text-amber-700 font-light">•</span>
-                <span className="flex items-center gap-1 font-medium text-amber-800 dark:text-amber-300">
-                  <MapPin className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Area: {activeArea}</span>
-                </span>
+            <button
+              onClick={() => onNavigate('installer_tasks')}
+              className={`hover:text-[#5B35B1] dark:hover:text-[#E9E1FF] transition-colors whitespace-nowrap pb-1 cursor-pointer ${
+                activeTab === 'installer_tasks' ? 'text-[#5B35B1] dark:text-[#E9E1FF] border-b-2 border-[#5B35B1] dark:border-[#8064D9] font-bold' : ''
+              }`}
+            >
+              Tugas Saya
+            </button>
+          </>
+        ) : (
+          // Role Non-Installer
+          <>
+            <button
+              onClick={() => onNavigate('dashboard')}
+              className={`hover:text-[#5B35B1] dark:hover:text-[#E9E1FF] transition-colors whitespace-nowrap pb-1 cursor-pointer ${
+                activeTab === 'dashboard' ? 'text-[#5B35B1] dark:text-[#E9E1FF] border-b-2 border-[#5B35B1] dark:border-[#8064D9] font-bold' : ''
+              }`}
+            >
+              Dashboard
+            </button>
+            {(currentUser.role === 'super_admin' || currentUser.role === 'dispatch') && (
+              <button
+                onClick={() => onNavigate('tickets')}
+                className={`hover:text-[#5B35B1] dark:hover:text-[#E9E1FF] transition-colors whitespace-nowrap pb-1 cursor-pointer ${
+                  activeTab === 'tickets' ? 'text-[#5B35B1] dark:text-[#E9E1FF] border-b-2 border-[#5B35B1] dark:border-[#8064D9] font-bold' : ''
+                }`}
+              >
+                Work Order Management
+              </button>
+            )}
+
+            {(currentUser.role === 'super_admin' || currentUser.role === 'leader') && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onNavigate('leader_portal')}
+                  className={`hover:text-[#5B35B1] dark:hover:text-[#E9E1FF] transition-colors whitespace-nowrap pb-1 cursor-pointer ${
+                    activeTab === 'leader_portal' ? 'text-[#5B35B1] dark:text-[#E9E1FF] border-b-2 border-[#5B35B1] dark:border-[#8064D9] font-bold' : ''
+                  }`}
+                >
+                  Dashboard Leader
+                </button>
+                {activeTab === 'leader_portal' && (
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-950/70 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-700/80 shadow-2xs">
+                    <span className="flex items-center gap-1 font-bold text-amber-900 dark:text-amber-100">
+                      <Building2 className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                      <span>{activeContractor}</span>
+                    </span>
+                    <span className="text-amber-300 dark:text-amber-700 font-light">•</span>
+                    <span className="flex items-center gap-1 font-medium text-amber-800 dark:text-amber-300">
+                      <MapPin className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Area: {activeArea}</span>
+                    </span>
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        )}
 
-        {(currentUser.role === 'super_admin' || currentUser.role === 'installer') && (
-          <button
-            onClick={() => onNavigate('installer_portal')}
-            className={`hover:text-[#5B35B1] dark:hover:text-[#E9E1FF] transition-colors whitespace-nowrap pb-1 cursor-pointer ${
-              activeTab === 'installer_portal' ? 'text-[#5B35B1] dark:text-[#E9E1FF] border-b-2 border-[#5B35B1] dark:border-[#8064D9] font-bold' : ''
-            }`}
-          >
-            Portal Teknisi
-          </button>
-        )}
+            {currentUser.role === 'super_admin' && (
+              <button
+                onClick={() => onNavigate('sheets_sync')}
+                className={`hover:text-[#5B35B1] dark:hover:text-[#E9E1FF] transition-colors whitespace-nowrap pb-1 flex items-center gap-1 cursor-pointer ${
+                  activeTab === 'sheets_sync' ? 'text-[#5B35B1] dark:text-[#E9E1FF] border-b-2 border-[#5B35B1] dark:border-[#8064D9] font-bold' : ''
+                }`}
+              >
+                <span>Google Sheets</span>
+              </button>
+            )}
 
-        {currentUser.role === 'super_admin' && (
-          <button
-            onClick={() => onNavigate('sheets_sync')}
-            className={`hover:text-[#5B35B1] dark:hover:text-[#E9E1FF] transition-colors whitespace-nowrap pb-1 flex items-center gap-1 cursor-pointer ${
-              activeTab === 'sheets_sync' ? 'text-[#5B35B1] dark:text-[#E9E1FF] border-b-2 border-[#5B35B1] dark:border-[#8064D9] font-bold' : ''
-            }`}
-          >
-            <span>Google Sheets</span>
-          </button>
+            <button
+              onClick={() => onNavigate('setup')}
+              className={`hover:text-[#5B35B1] dark:hover:text-[#E9E1FF] transition-colors whitespace-nowrap pb-1 cursor-pointer ${
+                activeTab === 'setup' ? 'text-[#5B35B1] dark:text-[#E9E1FF] border-b-2 border-[#5B35B1] dark:border-[#8064D9] font-bold' : ''
+              }`}
+            >
+              Setup
+            </button>
+          </>
         )}
-
-        <button
-          onClick={() => onNavigate('setup')}
-          className={`hover:text-[#5B35B1] dark:hover:text-[#E9E1FF] transition-colors whitespace-nowrap pb-1 cursor-pointer ${
-            activeTab === 'setup' ? 'text-[#5B35B1] dark:text-[#E9E1FF] border-b-2 border-[#5B35B1] dark:border-[#8064D9] font-bold' : ''
-          }`}
-        >
-          Setup
-        </button>
       </nav>
 
       {/* Zone 3: Actions & Profile switcher */}

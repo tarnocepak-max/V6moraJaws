@@ -26,7 +26,13 @@ import {
   EyeOff
 } from 'lucide-react';
 
-export const ReportDropdownManager: React.FC = () => {
+export interface ReportDropdownManagerProps {
+  initialCategoryType?: DropdownCategoryType;
+}
+
+export const ReportDropdownManager: React.FC<ReportDropdownManagerProps> = ({
+  initialCategoryType = 'report_status'
+}) => {
   const {
     reportDropdownCategories,
     isDropdownCategoriesLoading,
@@ -39,8 +45,15 @@ export const ReportDropdownManager: React.FC = () => {
   const { playReportSavedSound, playErrorSound } = useMoraJawsSound();
   const { toast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<DropdownCategoryType>('report_status');
+  const [activeTab, setActiveTab] = useState<DropdownCategoryType>(initialCategoryType);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Sync activeTab when navigating via parameterized submenus
+  React.useEffect(() => {
+    if (initialCategoryType) {
+      setActiveTab(initialCategoryType);
+    }
+  }, [initialCategoryType]);
 
   // Add category modal/form state
   const [showAddModal, setShowAddModal] = useState(false);

@@ -16,9 +16,14 @@ import {
   Database
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
+import { DropdownCategoryType } from '../../types';
 import { ReportDropdownManager } from './ReportDropdownManager';
 
-export const SettingDroplistView: React.FC = () => {
+export interface SettingDroplistViewProps {
+  initialCategoryType?: DropdownCategoryType;
+}
+
+export const SettingDroplistView: React.FC<SettingDroplistViewProps> = ({ initialCategoryType }) => {
   const { toast } = useToast();
   const [viewMode, setViewMode] = useState<'report_manager' | 'general_droplists'>('report_manager');
   const [activeCategory, setActiveCategory] = useState<DroplistItem['category']>('status_installer');
@@ -144,7 +149,7 @@ export const SettingDroplistView: React.FC = () => {
       </div>
 
       {viewMode === 'report_manager' && (
-        <ReportDropdownManager />
+        <ReportDropdownManager initialCategoryType={initialCategoryType} />
       )}
 
       {viewMode === 'general_droplists' && (

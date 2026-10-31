@@ -42,6 +42,7 @@ export type StatusFilterCategory = 'all' | 'done' | 'pending' | 'reschedule' | '
 interface InstallerPortalProps {
   onSelectTicket?: (ticket: Ticket, defaultTab?: 'overview' | 'report' | 'chat' | 'history') => void;
   onOpenWhatsApp: (ticket: Ticket) => void;
+  initialFilter?: StatusFilterCategory;
 }
 
 /**
@@ -89,7 +90,11 @@ export const classifyInstallerStatus = (ticket: Ticket): 'done' | 'pending' | 'r
   return 'pending';
 };
 
-export const InstallerPortal: React.FC<InstallerPortalProps> = ({ onSelectTicket, onOpenWhatsApp }) => {
+export const InstallerPortal: React.FC<InstallerPortalProps> = ({
+  onSelectTicket,
+  onOpenWhatsApp,
+  initialFilter = 'all'
+}) => {
   const {
     tickets,
     updateTicketStatus,
@@ -125,8 +130,15 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({ onSelectTicket
   }, [tickets, effectiveInstallerName]);
 
   // Status Filter State
-  const [statusFilter, setStatusFilter] = useState<StatusFilterCategory>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilterCategory>(initialFilter);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Sync filter when prop changes (navigating between Tugas Saya and Riwayat)
+  React.useEffect(() => {
+    if (initialFilter) {
+      setStatusFilter(initialFilter);
+    }
+  }, [initialFilter]);
 
   // Fullview ticket state for technician
   const [fullviewTicket, setFullviewTicket] = useState<Ticket | null>(null);

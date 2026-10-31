@@ -6,9 +6,11 @@ import {
   SectionDetailConfig,
   TablePreset,
   NavigationSettings,
-  NavigationDisplayMode
+  NavigationDisplayMode,
+  getCategoryPermanentId,
+  isCategoryAccordion
 } from '../types';
-import { DEFAULT_UI_CONFIG } from '../constants/defaultConfig';
+import { DEFAULT_UI_CONFIG, DEFAULT_NAVIGATION_CATEGORIES } from '../constants/defaultConfig';
 import {
   saveUIConfigurationToFirestore,
   loadUIConfigurationFromFirestore,
@@ -54,10 +56,13 @@ interface UIConfigContextType {
   // Sidebar controls
   setSidebarState: (state: 'expanded' | 'minimized' | 'closed') => void;
 
-  // Navigation Display Mode Settings (Accordion vs Static per role & per category)
+  // Navigation Display Mode Settings (Category-based ON/OFF Accordion)
   navigationSettings: NavigationSettings;
   updateNavigationSettings: (updates: Partial<NavigationSettings>) => void;
-  setRoleNavigationMode: (role: keyof NavigationSettings['roleModes'], mode: NavigationDisplayMode) => void;
+  setCategoryAccordion: (categoryIdOrName: string, enabled: boolean) => void;
+  toggleCategoryAccordion: (categoryIdOrName: string) => void;
+  getCategoryAccordionState: (categoryIdOrName: string) => boolean;
+  setRoleNavigationMode: (role: any, mode: NavigationDisplayMode) => void;
   setCategoryNavigationMode: (category: string, mode: NavigationDisplayMode) => void;
   resetNavigationSettings: () => void;
 
@@ -96,64 +101,126 @@ export interface NavigationMenuItem {
 }
 
 export const DEFAULT_MENU_CATEGORIES = [
-  'Dashboard',
-  'Operasional',
   'WO CONTRACTOR',
-  'TASK INSTALLER',
   'Pelanggan',
   'Laporan',
   'Setup'
 ];
 
 export const DEFAULT_NAVIGATION_ITEMS: NavigationMenuItem[] = [
-  // Dashboard
-  { id: 'dashboard', label: 'Dashboard Monitoring', category: 'Dashboard', order: 1, visible: true, roles: ['super_admin', 'dispatch', 'leader', 'management_data'] },
-  { id: 'tickets', label: 'Ticket MyRepublic', category: 'Dashboard', order: 2, visible: true, roles: ['super_admin', 'dispatch'] },
+  // =========================================================================
+  // 1. MENU UTAMA STATIC MANDIRI (Positioned directly at top of Sidebar)
+  // =========================================================================
+  { id: 'dashboard', label: 'Dashboard Monitoring', category: 'Mandiri', order: 1, visible: true, roles: ['super_admin', 'dispatch', 'leader', 'management_data', 'it_support'] },
+  { id: 'tickets', label: 'Work Order Management', category: 'Mandiri', order: 2, visible: true, roles: ['super_admin', 'dispatch'] },
+  { id: 'schedule', label: 'Jadwal & Kalender', category: 'Mandiri', order: 3, visible: true, roles: ['super_admin', 'dispatch', 'leader'] },
+  { id: 'import', label: 'Import Data WO', category: 'Mandiri', order: 4, visible: true, roles: ['super_admin', 'dispatch', 'management_data'] },
+  { id: 'installer_portal', label: 'Dashboard Installer', category: 'Mandiri', order: 5, visible: true, roles: ['installer'] },
+  { id: 'installer_tasks', label: 'Tugas Saya', category: 'Mandiri', order: 6, visible: true, roles: ['installer'] },
+  { id: 'users', label: 'Manajemen Akun', category: 'Mandiri', order: 7, visible: true, roles: ['super_admin'] },
+  { id: 'database_management', label: 'Database Application', category: 'Mandiri', order: 8, visible: true, roles: ['super_admin'] },
 
-  // Operasional
-  { id: 'tickets', label: 'Work Order Management', category: 'Operasional', order: 3, visible: true, roles: ['super_admin', 'dispatch'] },
-  { id: 'schedule', label: 'Jadwal & Kalender', category: 'Operasional', order: 4, visible: true, roles: ['super_admin', 'dispatch', 'leader'] },
-  { id: 'import', label: 'Import Data WO', category: 'Operasional', order: 5, visible: true, roles: ['super_admin', 'dispatch', 'management_data'] },
-  { id: 'form_sameday', label: 'Form Sameday Express', category: 'Operasional', order: 6, visible: true, roles: ['dispatch'] },
+  // =========================================================================
+  // 2. KATEGORI: WO CONTRACTOR — STATIC
+  // =========================================================================
+  { id: 'wo_assignment', label: 'Assign WO', category: 'WO CONTRACTOR', order: 9, visible: true, roles: ['super_admin', 'dispatch', 'leader'] },
+  { id: 'progress_dashboard', label: 'Dashboard Progress WO', category: 'WO CONTRACTOR', order: 10, visible: true, roles: ['super_admin', 'dispatch', 'leader'] },
+  { id: 'installer_mgmt', label: 'Pendaftaran Akun Teknisi', category: 'WO CONTRACTOR', order: 11, visible: true, roles: ['super_admin', 'leader'] },
+  { id: 'quota_settings', label: 'Pengaturan Kuota & Kolom Visibilitas', category: 'WO CONTRACTOR', order: 12, visible: true, roles: ['super_admin', 'leader'] },
+  { id: 'contractor_recap', label: 'Rekap Total WO per Kontraktor', category: 'WO CONTRACTOR', order: 13, visible: true, roles: ['super_admin', 'dispatch', 'leader', 'management_data'] },
 
-  // WO CONTRACTOR
-  { id: 'wo_assignment', label: 'Assign WO', category: 'WO CONTRACTOR', order: 7, visible: true, roles: ['super_admin', 'dispatch', 'leader'] },
-  { id: 'progress_dashboard', label: 'Dashboard Progress WO', category: 'WO CONTRACTOR', order: 8, visible: true, roles: ['super_admin', 'dispatch', 'leader'] },
-  { id: 'installer_mgmt', label: 'Pendaftaran Akun Teknisi', category: 'WO CONTRACTOR', order: 9, visible: true, roles: ['super_admin', 'leader'] },
-  { id: 'quota_settings', label: 'Pengaturan Kuota & Kolom Visibilitas', category: 'WO CONTRACTOR', order: 10, visible: true, roles: ['super_admin', 'leader'] },
-  { id: 'contractor_recap', label: 'Rekap Total WO per Kontraktor', category: 'WO CONTRACTOR', order: 11, visible: true, roles: ['super_admin', 'dispatch', 'leader', 'management_data'] },
-  { id: 'location_basecamp', label: 'Kontraktor & Basecamp', category: 'WO CONTRACTOR', order: 12, visible: true, roles: ['super_admin', 'dispatch', 'leader'] },
+  // =========================================================================
+  // 3. KATEGORI: PELANGGAN — ACCORDION
+  // =========================================================================
+  { id: 'contact_centre', label: 'Contact Centre', category: 'Pelanggan', order: 14, visible: true, roles: ['super_admin', 'dispatch', 'leader'] },
+  { id: 'templates', label: 'Template WhatsApp', category: 'Pelanggan', order: 15, visible: true, roles: ['super_admin', 'dispatch', 'leader'] },
 
-  // TASK INSTALLER
-  { id: 'installer_portal', label: 'Portal Teknisi Lapangan', category: 'TASK INSTALLER', order: 13, visible: true, roles: ['super_admin', 'dispatch', 'installer'] },
-  { id: 'installer_tasks', label: 'Tugas Saya', category: 'TASK INSTALLER', order: 14, visible: true, roles: ['super_admin', 'dispatch', 'installer'] },
-  { id: 'installer_progress', label: 'Dashboard Progress Teknisi', category: 'TASK INSTALLER', order: 15, visible: true, roles: ['super_admin', 'dispatch', 'installer'] },
-  { id: 'installer_history', label: 'Riwayat Pekerjaan Teknisi', category: 'TASK INSTALLER', order: 14, visible: true, roles: ['super_admin', 'dispatch', 'installer'] },
+  // =========================================================================
+  // 4. KATEGORI: LAPORAN — ACCORDION
+  // =========================================================================
+  { id: 'report_data_wo', label: 'Report Data WO', category: 'Laporan', order: 16, visible: true, roles: ['super_admin', 'dispatch', 'management_data'] },
+  { id: 'report_installer', label: 'Report Installer', category: 'Laporan', order: 17, visible: true, roles: ['super_admin', 'dispatch', 'management_data', 'leader'] },
+  { id: 'audit_logs', label: 'Audit Trail Log', category: 'Laporan', order: 18, visible: true, roles: ['super_admin', 'it_support'] },
+  { id: 'login_logs', label: 'Riwayat Sesi Login', category: 'Laporan', order: 19, visible: true, roles: ['super_admin', 'dispatch', 'it_support'] },
+  { id: 'system_health', label: 'Kesehatan Sistem', category: 'Laporan', order: 20, visible: true, roles: ['super_admin', 'it_support'] },
 
-  // Pelanggan
-  { id: 'contact_centre', label: 'Contact Centre', category: 'Pelanggan', order: 17, visible: true, roles: ['super_admin', 'dispatch', 'leader', 'installer'] },
-  { id: 'templates', label: 'Template WhatsApp', category: 'Pelanggan', order: 18, visible: true, roles: ['super_admin', 'dispatch', 'leader'] },
+  // =========================================================================
+  // 5. KATEGORI: SETUP — ACCORDION
+  // =========================================================================
+  { id: 'setup', label: 'Setup Terpusat MoraJaws', category: 'Setup', order: 21, visible: true, roles: ['super_admin', 'dispatch', 'leader', 'management_data', 'it_support'] },
+  { id: 'nav_config', label: 'Konfigurasi Menu Navigasi', category: 'Setup', order: 22, visible: true, roles: ['super_admin'] },
+  { id: 'management_role', label: 'Role & Permission', category: 'Setup', order: 23, visible: true, roles: ['super_admin'] },
+  { id: 'setting_droplist_status', label: 'Kategori Report', category: 'Setup', order: 24, visible: true, roles: ['super_admin', 'dispatch'] },
+  { id: 'setting_droplist_reason', label: 'Reason Report', category: 'Setup', order: 25, visible: true, roles: ['super_admin', 'dispatch'] },
+  { id: 'setting_droplist_rootcause', label: 'Rootcause', category: 'Setup', order: 26, visible: true, roles: ['super_admin', 'dispatch'] },
+  { id: 'sound_settings', label: 'Pengaturan Notifikasi', category: 'Setup', order: 27, visible: true, roles: ['super_admin', 'dispatch', 'leader'] },
+  { id: 'settings', label: 'Pengaturan Sistem', category: 'Setup', order: 28, visible: true, roles: ['super_admin'] },
+  { id: 'offline_sync', label: 'Sinkronisasi Offline', category: 'Setup', order: 29, visible: true, roles: ['super_admin', 'dispatch', 'leader'] },
 
-  // Laporan
-  { id: 'report_data_wo', label: 'Report Data WO', category: 'Laporan', order: 19, visible: true, roles: ['super_admin', 'dispatch', 'management_data'] },
-  { id: 'report_installer', label: 'Report Installer', category: 'Laporan', order: 20, visible: true, roles: ['super_admin', 'dispatch', 'management_data', 'leader'] },
-  { id: 'rekap_laporan', label: 'Rekap Laporan', category: 'Laporan', order: 21, visible: true, roles: ['super_admin', 'dispatch', 'leader', 'management_data'] },
-  { id: 'audit_logs', label: 'Audit Trail Log', category: 'Laporan', order: 22, visible: true, roles: ['super_admin', 'it_support'] },
-  { id: 'login_logs', label: 'Riwayat Sesi Login', category: 'Laporan', order: 23, visible: true, roles: ['super_admin', 'dispatch', 'it_support'] },
-
-  // Setup
-  { id: 'setup', label: 'Setup Terpusat MoraJaws', category: 'Setup', order: 24, visible: true, roles: ['super_admin', 'dispatch', 'leader', 'management_data', 'it_support'] },
-  { id: 'nav_config', label: 'Konfigurasi Menu Navigasi', category: 'Setup', order: 25, visible: true, roles: ['super_admin'] },
-  { id: 'users', label: 'Manajemen Pengguna', category: 'Setup', order: 26, visible: true, roles: ['super_admin'] },
-  { id: 'management_role', label: 'Role & Permission', category: 'Setup', order: 27, visible: true, roles: ['super_admin'] },
-  { id: 'database_management', label: 'Pengaturan Database', category: 'Setup', order: 28, visible: true, roles: ['super_admin'] },
-  { id: 'setting_droplist_status', label: 'Kategori Report', category: 'Setup', order: 29, visible: true, roles: ['super_admin', 'dispatch'] },
-  { id: 'setting_droplist_reason', label: 'Reason Report', category: 'Setup', order: 30, visible: true, roles: ['super_admin', 'dispatch'] },
-  { id: 'setting_droplist_rootcause', label: 'Rootcause', category: 'Setup', order: 31, visible: true, roles: ['super_admin', 'dispatch'] },
-  { id: 'sound_settings', label: 'Pengaturan Notifikasi', category: 'Setup', order: 32, visible: true, roles: ['super_admin', 'dispatch', 'leader', 'installer'] },
-  { id: 'settings', label: 'Pengaturan Sistem', category: 'Setup', order: 33, visible: true, roles: ['super_admin'] },
-  { id: 'offline_sync', label: 'Sinkronisasi Offline', category: 'Setup', order: 34, visible: true, roles: ['super_admin', 'dispatch', 'leader', 'installer'] }
+  // =========================================================================
+  // 6. MENU YANG DISEMBUNYIKAN DARI SIDEBAR (Bagian 7)
+  // =========================================================================
+  { id: 'form_sameday', label: 'Form Sameday Express', category: 'Hidden', order: 30, visible: false, roles: ['dispatch'] },
+  { id: 'location_basecamp', label: 'Kontraktor & Basecamp', category: 'Hidden', order: 31, visible: false, roles: ['super_admin', 'dispatch', 'leader'] },
+  { id: 'installer_progress', label: 'Dashboard Progress Teknisi', category: 'Hidden', order: 32, visible: false, roles: ['installer', 'super_admin'] },
+  { id: 'installer_history', label: 'Riwayat Pekerjaan Teknisi', category: 'Hidden', order: 33, visible: false, roles: ['installer', 'super_admin'] }
 ];
+
+/**
+ * Sanitizes navigation items: removes duplicates, purges orphan/deprecated items,
+ * assigns correct parent category, and preserves order.
+ */
+export const sanitizeNavigationItems = (items: NavigationMenuItem[]): NavigationMenuItem[] => {
+  if (!Array.isArray(items)) return DEFAULT_NAVIGATION_ITEMS;
+
+  const deprecatedOrphanIds = new Set(['assign_wo_fat', 'import_excel', 'contractors', 'rekap_laporan']);
+  const mandiriItemIds = new Set(['dashboard', 'tickets', 'schedule', 'import', 'installer_portal', 'installer_tasks', 'users', 'database_management']);
+  const hiddenItemIds = new Set(['form_sameday', 'location_basecamp', 'installer_progress', 'installer_history']);
+
+  const seenIds = new Set<string>();
+  const sanitized: NavigationMenuItem[] = [];
+
+  for (const item of items) {
+    if (!item || !item.id) continue;
+    if (deprecatedOrphanIds.has(item.id)) continue;
+
+    // Prune duplicate tickets in Dashboard (only allow in Mandiri)
+    if (item.id === 'tickets' && item.category === 'Dashboard') continue;
+
+    // Skip duplicate IDs
+    if (seenIds.has(item.id)) continue;
+
+    seenIds.add(item.id);
+
+    // Normalize category according to the new navigation architecture
+    let targetCategory = item.category;
+    let targetVisible = item.visible;
+
+    if (mandiriItemIds.has(item.id)) {
+      targetCategory = 'Mandiri';
+    } else if (hiddenItemIds.has(item.id)) {
+      targetCategory = 'Hidden';
+      targetVisible = false;
+    }
+
+    sanitized.push({
+      ...item,
+      category: targetCategory,
+      visible: targetVisible,
+      label: item.label === 'Dashboard Area' ? 'Dashboard Leader' : item.label
+    });
+  }
+
+  // Ensure all canonical default items are present
+  for (const def of DEFAULT_NAVIGATION_ITEMS) {
+    if (!seenIds.has(def.id)) {
+      seenIds.add(def.id);
+      sanitized.push(def);
+    }
+  }
+
+  return sanitized.sort((a, b) => a.order - b.order);
+};
 
 const STORAGE_KEY = 'dispatch_system_ui_config_v4';
 const NAV_STORAGE_KEY = 'morajaws_navigation_items_v4';
@@ -266,21 +333,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const saved = localStorage.getItem(NAV_STORAGE_KEY);
       if (saved) {
         const parsed: NavigationMenuItem[] = JSON.parse(saved);
-        const filtered = parsed
-          .filter(i => !['assign_wo_fat', 'import_excel', 'contractors'].includes(i.id))
-          .map(i => {
-            if (i.id === 'leader_portal' && i.label === 'Dashboard Area') return { ...i, label: 'Dashboard Leader' };
-            if (i.id === 'tickets') return { ...i, label: 'TICKET MYREPUBLIC' };
-            return i;
-          });
-        const existingIds = new Set(filtered.map(i => i.id));
-        const merged = [...filtered];
-        for (const def of DEFAULT_NAVIGATION_ITEMS) {
-          if (!existingIds.has(def.id)) {
-            merged.push(def);
-          }
-        }
-        return merged;
+        return sanitizeNavigationItems(parsed);
       }
     } catch (e) {
       console.warn('Failed to parse saved navigation items', e);
@@ -396,7 +449,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             }));
           }
           if (Array.isArray(cloudData.navigationItems) && cloudData.navigationItems.length > 0) {
-            setNavigationItemsState(cloudData.navigationItems);
+            setNavigationItemsState(sanitizeNavigationItems(cloudData.navigationItems));
           }
           if (Array.isArray(cloudData.menuCategories) && cloudData.menuCategories.length > 0) {
             setMenuCategoriesState(cloudData.menuCategories);
@@ -427,7 +480,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             }));
           }
           if (Array.isArray(data.navigationItems) && data.navigationItems.length > 0) {
-            setNavigationItemsState(data.navigationItems);
+            setNavigationItemsState(sanitizeNavigationItems(data.navigationItems));
           }
           if (Array.isArray(data.menuCategories) && data.menuCategories.length > 0) {
             setMenuCategoriesState(data.menuCategories);
@@ -877,40 +930,73 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return false;
   };
 
-  const navigationSettings: NavigationSettings = config.navigationSettings || {
-    defaultMode: 'static',
-    roleModes: {
-      super_admin: 'accordion',
-      dispatch: 'accordion',
-      leader: 'static',
-      installer: 'static',
-      management_data: 'accordion',
-      it_support: 'accordion'
+  const navigationSettings: NavigationSettings = {
+    categories: {
+      ...DEFAULT_NAVIGATION_CATEGORIES,
+      ...(config.navigationSettings?.categories || {})
     },
-    categoryModes: {},
-    allowMultipleOpenGroups: true
+    allowMultipleOpenGroups: config.navigationSettings?.allowMultipleOpenGroups !== false,
+    defaultMode: config.navigationSettings?.defaultMode || 'static',
+    roleModes: config.navigationSettings?.roleModes,
+    categoryModes: config.navigationSettings?.categoryModes
+  };
+
+  const setCategoryAccordion = (categoryIdOrName: string, enabled: boolean) => {
+    const permId = getCategoryPermanentId(categoryIdOrName);
+    setConfig(prev => {
+      const current = prev.navigationSettings || {
+        categories: { ...DEFAULT_NAVIGATION_CATEGORIES },
+        allowMultipleOpenGroups: true
+      };
+      const currentCategories = { ...(current.categories || DEFAULT_NAVIGATION_CATEGORIES) };
+      currentCategories[permId] = {
+        ...(currentCategories[permId] || {}),
+        accordionEnabled: enabled
+      };
+      const snakeId = permId.replace(/([A-Z])/g, '_$1').toLowerCase();
+      if (snakeId !== permId) {
+        currentCategories[snakeId] = {
+          ...(currentCategories[snakeId] || {}),
+          accordionEnabled: enabled
+        };
+      }
+
+      const merged: NavigationSettings = {
+        ...current,
+        categories: currentCategories,
+        allowMultipleOpenGroups: current.allowMultipleOpenGroups !== false
+      };
+
+      return {
+        ...prev,
+        navigationSettings: merged,
+        updatedAt: new Date().toISOString()
+      };
+    });
+  };
+
+  const toggleCategoryAccordion = (categoryIdOrName: string) => {
+    const currentStatus = isCategoryAccordion(categoryIdOrName, navigationSettings);
+    setCategoryAccordion(categoryIdOrName, !currentStatus);
+  };
+
+  const getCategoryAccordionState = (categoryIdOrName: string): boolean => {
+    return isCategoryAccordion(categoryIdOrName, navigationSettings);
   };
 
   const updateNavigationSettings = (updates: Partial<NavigationSettings>) => {
     setConfig(prev => {
       const current = prev.navigationSettings || {
-        defaultMode: 'static',
-        roleModes: {
-          super_admin: 'accordion',
-          dispatch: 'accordion',
-          leader: 'static',
-          installer: 'static',
-          management_data: 'accordion',
-          it_support: 'accordion'
-        },
-        categoryModes: {},
+        categories: { ...DEFAULT_NAVIGATION_CATEGORIES },
         allowMultipleOpenGroups: true
       };
       const merged: NavigationSettings = {
         ...current,
         ...updates,
-        roleModes: { ...current.roleModes, ...(updates.roleModes || {}) },
-        categoryModes: { ...current.categoryModes, ...(updates.categoryModes || {}) }
+        categories: {
+          ...(current.categories || DEFAULT_NAVIGATION_CATEGORIES),
+          ...(updates.categories || {})
+        }
       };
       return {
         ...prev,
@@ -920,36 +1006,23 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     });
   };
 
-  const setRoleNavigationMode = (role: keyof NavigationSettings['roleModes'], mode: NavigationDisplayMode) => {
+  const setRoleNavigationMode = (role: any, mode: NavigationDisplayMode) => {
     updateNavigationSettings({
       roleModes: {
-        ...navigationSettings.roleModes,
+        ...(navigationSettings.roleModes || {}),
         [role]: mode
       }
     });
   };
 
   const setCategoryNavigationMode = (category: string, mode: NavigationDisplayMode) => {
-    updateNavigationSettings({
-      categoryModes: {
-        ...navigationSettings.categoryModes,
-        [category]: mode
-      }
-    });
+    const permId = getCategoryPermanentId(category);
+    setCategoryAccordion(permId, mode === 'accordion');
   };
 
   const resetNavigationSettings = () => {
     updateNavigationSettings({
-      defaultMode: 'static',
-      roleModes: {
-        super_admin: 'accordion',
-        dispatch: 'accordion',
-        leader: 'static',
-        installer: 'static',
-        management_data: 'accordion',
-        it_support: 'accordion'
-      },
-      categoryModes: {},
+      categories: { ...DEFAULT_NAVIGATION_CATEGORIES },
       allowMultipleOpenGroups: true
     });
   };
@@ -986,6 +1059,9 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setShowEmptyFields,
         navigationSettings,
         updateNavigationSettings,
+        setCategoryAccordion,
+        toggleCategoryAccordion,
+        getCategoryAccordionState,
         setRoleNavigationMode,
         setCategoryNavigationMode,
         resetNavigationSettings,

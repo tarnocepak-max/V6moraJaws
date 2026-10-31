@@ -242,19 +242,29 @@ export const DEFAULT_UI_CONFIG: UIConfiguration = {
     }
   },
   navigationSettings: {
-    defaultMode: 'static',
-    roleModes: {
-      super_admin: 'accordion',
-      dispatch: 'accordion',
-      leader: 'static',
-      installer: 'static',
-      management_data: 'accordion',
-      it_support: 'accordion'
+    categories: {
+      dashboard: { accordionEnabled: false },
+      operasional: { accordionEnabled: false },
+      woContractor: { accordionEnabled: false },
+      taskInstaller: { accordionEnabled: false },
+      pelanggan: { accordionEnabled: true },
+      laporan: { accordionEnabled: true },
+      setup: { accordionEnabled: true }
     },
-    categoryModes: {},
-    allowMultipleOpenGroups: true
+    allowMultipleOpenGroups: false
   }
 };
+
+export const DEFAULT_NAVIGATION_CATEGORIES = {
+  dashboard: { accordionEnabled: false },
+  operasional: { accordionEnabled: false },
+  woContractor: { accordionEnabled: false },
+  taskInstaller: { accordionEnabled: false },
+  pelanggan: { accordionEnabled: true },
+  laporan: { accordionEnabled: true },
+  setup: { accordionEnabled: true }
+};
+
 
 export const STANDARD_HEADER_MAPPINGS: HeaderMapping[] = [
   {

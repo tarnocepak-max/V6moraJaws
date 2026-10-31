@@ -193,11 +193,33 @@ const MainLayout: React.FC = () => {
 
       // Technician Portal (TASK INSTALLER)
       case 'installer_portal':
+        return (
+          <InstallerPortal
+            initialFilter="all"
+            onSelectTicket={handleOpenTicketDetail}
+            onOpenWhatsApp={handleOpenWhatsAppModal}
+          />
+        );
       case 'installer_tasks':
+        return (
+          <InstallerPortal
+            initialFilter="pending"
+            onSelectTicket={handleOpenTicketDetail}
+            onOpenWhatsApp={handleOpenWhatsAppModal}
+          />
+        );
       case 'installer_progress':
+        return (
+          <InstallerPortal
+            initialFilter="all"
+            onSelectTicket={handleOpenTicketDetail}
+            onOpenWhatsApp={handleOpenWhatsAppModal}
+          />
+        );
       case 'installer_history':
         return (
           <InstallerPortal
+            initialFilter="done"
             onSelectTicket={handleOpenTicketDetail}
             onOpenWhatsApp={handleOpenWhatsAppModal}
           />
@@ -277,9 +299,11 @@ const MainLayout: React.FC = () => {
       case 'sound_settings':
         return <SoundSettingsView />;
       case 'setting_droplist_status':
+        return <SettingDroplistView initialCategoryType="report_status" />;
       case 'setting_droplist_reason':
+        return <SettingDroplistView initialCategoryType="reason_report" />;
       case 'setting_droplist_rootcause':
-        return <SettingDroplistView />;
+        return <SettingDroplistView initialCategoryType="rootcause" />;
 
       default:
         return <DashboardOverview onNavigate={tab => setActiveTab(tab)} />;

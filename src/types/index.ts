@@ -274,6 +274,9 @@ export interface Ticket {
   corlapName?: string;
   corlapContact?: string;
   installerName?: string;
+  installerId?: string;
+  installerUid?: string;
+  assignedToUid?: string;
   installerContact?: string;
   installerContact2?: string;
   installerEmail?: string;
@@ -583,18 +586,95 @@ export interface UIConfiguration {
 
 export type NavigationDisplayMode = 'accordion' | 'static';
 
+export interface CategoryAccordionConfig {
+  accordionEnabled: boolean;
+  title?: string;
+  icon?: string;
+  order?: number;
+}
+
 export interface NavigationSettings {
-  defaultMode: NavigationDisplayMode;
-  roleModes: {
-    super_admin: NavigationDisplayMode;
-    dispatch: NavigationDisplayMode;
-    leader: NavigationDisplayMode;
-    installer: NavigationDisplayMode;
+  categories: Record<string, CategoryAccordionConfig>;
+  allowMultipleOpenGroups?: boolean;
+  // Legacy fields kept for backward compatibility
+  defaultMode?: NavigationDisplayMode;
+  roleModes?: {
+    super_admin?: NavigationDisplayMode;
+    dispatch?: NavigationDisplayMode;
+    leader?: NavigationDisplayMode;
+    installer?: NavigationDisplayMode;
     management_data?: NavigationDisplayMode;
     it_support?: NavigationDisplayMode;
   };
-  categoryModes: Record<string, NavigationDisplayMode>;
-  allowMultipleOpenGroups: boolean;
+  categoryModes?: Record<string, NavigationDisplayMode>;
+}
+
+/**
+ * Standardize category IDs to permanent canonical identifiers.
+ * Example: 'DASHBOARD' -> 'dashboard', 'WO CONTRACTOR' -> 'woContractor', 'task_installer' -> 'taskInstaller'
+ */
+export function getCategoryPermanentId(nameOrId: string): string {
+  if (!nameOrId) return '';
+  const clean = nameOrId.trim().toLowerCase().replace(/[\s\-_]+/g, '');
+  if (clean === 'dashboard') return 'dashboard';
+  if (clean === 'operasional' || clean === 'operational') return 'operasional';
+  if (clean === 'wocontractor' || clean === 'contractor') return 'woContractor';
+  if (clean === 'taskinstaller' || clean === 'installer') return 'taskInstaller';
+  if (clean === 'pelanggan' || clean === 'customer') return 'pelanggan';
+  if (clean === 'laporan' || clean === 'report') return 'laporan';
+  if (clean === 'setup' || clean === 'pengaturan') return 'setup';
+  return clean;
+}
+
+/**
+ * Determine if a category has Accordion ON (true) or OFF (false / Static Menu)
+ * Default: Dashboard OFF, Operasional ON, WO Contractor OFF, Task Installer OFF, Pelanggan ON, Laporan ON, Setup OFF
+ */
+export function isCategoryAccordion(
+  categoryIdOrName: string,
+  navigationSettings?: NavigationSettings
+): boolean {
+  if (!categoryIdOrName) return false;
+  const permId = getCategoryPermanentId(categoryIdOrName);
+
+  // 1. Direct check in navigationSettings.categories (canonical permanent ID)
+  if (navigationSettings?.categories) {
+    if (navigationSettings.categories[permId] !== undefined) {
+      return Boolean(navigationSettings.categories[permId].accordionEnabled);
+    }
+    // Also check snake_case variant e.g. wo_contractor or task_installer
+    const snakeId = permId.replace(/([A-Z])/g, '_$1').toLowerCase();
+    if (navigationSettings.categories[snakeId] !== undefined) {
+      return Boolean(navigationSettings.categories[snakeId].accordionEnabled);
+    }
+    // Also check raw string
+    if (navigationSettings.categories[categoryIdOrName] !== undefined) {
+      return Boolean(navigationSettings.categories[categoryIdOrName].accordionEnabled);
+    }
+  }
+
+  // 2. Legacy check in categoryModes if present
+  if (navigationSettings?.categoryModes) {
+    const mode = navigationSettings.categoryModes[permId] ||
+      navigationSettings.categoryModes[categoryIdOrName] ||
+      navigationSettings.categoryModes[categoryIdOrName.toUpperCase()];
+    if (mode === 'accordion') return true;
+    if (mode === 'static') return false;
+  }
+
+  // 3. Official MoraJaws default configuration:
+  // WO Contractor: OFF (Static), Pelanggan: ON (Accordion), Laporan: ON (Accordion), Setup: ON (Accordion)
+  const defaults: Record<string, boolean> = {
+    dashboard: false,
+    operasional: false,
+    woContractor: false,
+    taskInstaller: false,
+    pelanggan: true,
+    laporan: true,
+    setup: true
+  };
+
+  return defaults[permId] ?? false;
 }
 
 export interface CanonicalFieldConfig {
